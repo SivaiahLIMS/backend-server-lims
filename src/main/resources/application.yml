@@ -1,0 +1,93 @@
+server:
+  port: ${PORT:8080}
+  servlet:
+    context-path: /api/v1
+
+spring:
+  application:
+    name: lims
+  jackson:
+    serialization:
+      fail-on-empty-beans: false
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/lims}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: 2
+      connection-timeout: 20000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      keepalive-time: 300000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+    show-sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+# Google Cloud
+gcp:
+  project-id: ${GCP_PROJECT_ID:}
+  storage:
+    bucket: ${GCS_BUCKET:lims-documents}
+    # GCS credentials: uses Application Default Credentials on Cloud Run
+    # Locally: set GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+
+# Actuator - expose health, metrics, prometheus, info, loggers
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,loggers,threaddump,heapdump
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      show-components: when-authorized
+    loggers:
+      enabled: true
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      environment: ${APP_ENV:local}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        "[http.server.requests]": [0.5, 0.75, 0.90, 0.95, 0.99]
+
+      slo:
+        "[http.server.requests]":
+          - 50ms
+          - 100ms
+          - 200ms
+          - 500ms
+          - 1s
+          - 2s
+  health:
+    db:
+      enabled: true
+    diskspace:
+      enabled: true
+
+app:
+  jwt:
+    secret: "${JWT_SECRET:3cfa76ef14937c1c0ea519f8fc057a80fcd04a7420f8e8bcd0a7567c272e007b}"
+    expiration-ms: ${JWT_EXPIRY_MS:86400000}
+    refresh-expiration-ms: ${JWT_REFRESH_EXPIRY_MS:604800000}
+  security:
+    max-failed-attempts: 3
+    lock-duration-months: 1
