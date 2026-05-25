@@ -7,7 +7,7 @@ substitutions:
   _PROJECT_ID: surya-welcome-demo-2026
   _REGION: asia-south1
   _REPO: backend-repo
-  _SERVICE: lims-backend-service
+  _SERVICE: backend-server-lims
 
 steps:
   - name: 'maven:3.9.9-eclipse-temurin-21'
