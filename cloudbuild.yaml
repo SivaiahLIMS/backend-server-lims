@@ -4,7 +4,7 @@ options:
   logging: CLOUD_LOGGING_ONLY
 
 substitutions:
-  _PROJECT_ID: lims-backend-service
+  _PROJECT_ID: surya-welcome-demo-2026
   _REGION: asia-south1
   _REPO: backend-repo
   _SERVICE: lims-backend-service
