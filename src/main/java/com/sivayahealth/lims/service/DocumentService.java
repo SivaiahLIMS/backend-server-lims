@@ -76,6 +76,11 @@ public class DocumentService {
         String fileUrl = null;
         Long fileSizeBytes = null;
         try {
+
+            if (file == null || file.isEmpty()) {
+                throw new IllegalArgumentException("Uploaded file is empty");
+            }
+
             byte[] fileBytes = file.getBytes();
             String safeFilename = file.getOriginalFilename().replaceAll("[^a-zA-Z0-9._-]", "_");
             String gcsPath = tenantId + "/" + documentId + "/v" + nextVersion + "/" + safeFilename;

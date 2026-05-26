@@ -47,7 +47,8 @@ gcp:
   project-id: ${GCP_PROJECT_ID:surya-welcome-demo-2026}
   storage:
     bucket: ${GCS_BUCKET:lims-documents}
-
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,https://lims-ui-452789239320.asia-south1.run.app}
 management:
   endpoints:
     web:

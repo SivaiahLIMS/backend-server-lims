@@ -38,5 +38,6 @@ steps:
       - '--allow-unauthenticated'
       - '--add-cloudsql-instances=surya-welcome-demo-2026:asia-south1:lims-postgres'
       - '--set-env-vars=SPRING_PROFILES_ACTIVE=cloud,INSTANCE_CONNECTION_NAME=surya-welcome-demo-2026:asia-south1:lims-postgres,DB_NAME=lims_db,DB_USERNAME=lims_user,DB_PASSWORD=Lims@123'
+#      - '--set-env-vars=SPRING_PROFILES_ACTIVE=cloud,INSTANCE_CONNECTION_NAME=surya-welcome-demo-2026:asia-south1:lims-postgres,DB_NAME=lims_db,DB_USERNAME=lims_user,DB_PASSWORD=Lims@123,JWT_SECRET=xxxxx,CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,https://lims-ui-452789239320.asia-south1.run.app'
 images:
   - '${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_SERVICE}:$COMMIT_SHA'
