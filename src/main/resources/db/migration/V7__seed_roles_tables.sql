@@ -89,26 +89,41 @@ ON CONFLICT (user_id) DO NOTHING;
 -- SECTION 3: Role Assignments
 -- ============================================================
 INSERT INTO user_role (user_id, tenant_id, branch_id, role_id)
-SELECT au.id, t.id, b.id, r.id
-FROM app_user au
-         JOIN tenant t ON t.id = au.tenant_id AND t.code = 'SIVAYA'
-         JOIN branch b ON b.tenant_id = t.id AND b.code = 'MAIN'
-         JOIN role r ON r.code = ra.role_code,
-     (VALUES
-          ('lab_manager',  'LAB_MANAGER'),
-          ('analyst',      'ANALYST'),
-          ('reviewer',     'REVIEWER'),
-          ('approver',     'APPROVER'),
-          ('inv_manager',  'INVENTORY_MANAGER'),
-          ('inst_manager', 'INSTRUMENT_MANAGER'),
-          ('qa_manager',   'QA_MANAGER'),
-          ('qc_manager',   'QC_MANAGER'),
-          ('purchaser',    'PURCHASER'),
-          ('storekeeper',  'STOREKEEPER'),
-          ('ai_reviewer',  'AI_REVIEWER'),
-          ('viewer',       'VIEWER')
-     ) AS ra(username, role_code)
-WHERE au.username = ra.username
+SELECT
+    au.id,
+    t.id,
+    b.id,
+    r.id
+FROM
+    (VALUES
+         ('lab_manager',  'LAB_MANAGER'),
+         ('analyst',      'ANALYST'),
+         ('reviewer',     'REVIEWER'),
+         ('approver',     'APPROVER'),
+         ('inv_manager',  'INVENTORY_MANAGER'),
+         ('inst_manager', 'INSTRUMENT_MANAGER'),
+         ('qa_manager',   'QA_MANAGER'),
+         ('qc_manager',   'QC_MANAGER'),
+         ('purchaser',    'PURCHASER'),
+         ('storekeeper',  'STOREKEEPER'),
+         ('ai_reviewer',  'AI_REVIEWER'),
+         ('viewer',       'VIEWER')
+    ) AS ra(username, role_code)
+
+        JOIN app_user au
+             ON au.username = ra.username
+
+        JOIN tenant t
+             ON t.id = au.tenant_id
+                 AND t.code = 'SIVAYA'
+
+        JOIN branch b
+             ON b.tenant_id = t.id
+                 AND b.code = 'MAIN'
+
+        JOIN role r
+             ON r.code = ra.role_code
+
     ON CONFLICT DO NOTHING;
 
 -- ============================================================

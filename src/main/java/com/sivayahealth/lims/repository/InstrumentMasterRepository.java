@@ -11,4 +11,9 @@ public interface InstrumentMasterRepository extends JpaRepository<InstrumentMast
     List<InstrumentMaster> findByTenantId(Long tenantId);
     boolean existsByInstrumentCode(String instrumentCode);
     java.util.Optional<InstrumentMaster> findByTenant_IdAndBarcodeValue(Long tenantId, String barcodeValue);
+
+    /** Active (usable) instruments — status = AVAILABLE */
+    List<InstrumentMaster> findByTenantIdAndBranchIdAndStatus(Long tenantId, Long branchId, String status);
+
+    List<InstrumentMaster> findByTenantIdAndStatus(Long tenantId, String status);
 }

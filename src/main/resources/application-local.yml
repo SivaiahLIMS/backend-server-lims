@@ -1,0 +1,5 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://34.14.198.255:5432/lims_db
+    username: lims_user
+    password: Lims@123

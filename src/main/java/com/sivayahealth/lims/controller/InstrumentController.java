@@ -14,8 +14,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +31,9 @@ public class InstrumentController {
     private final InstrumentCalibrationLimitSetRepository calibrationLimitSetRepository;
     private final CalibrationTaskRepository calibrationTaskRepository;
     private final InstrumentMasterRepository instrumentMasterRepository;
+    private final InstrumentCalibrationRepository instrumentCalibrationRepository;
     private final AppUserRepository appUserRepository;
+    private final com.sivayahealth.lims.repository.OrderRequestRepository orderRequestRepository;
 
     @PostMapping
     @PreAuthorize("hasAuthority('INSTRUMENT_CREATE')")
@@ -45,7 +47,7 @@ public class InstrumentController {
     @PreAuthorize("hasAuthority('INSTRUMENT_VIEW')")
     @Operation(summary = "List instruments for branch")
     public ResponseEntity<List<InstrumentMaster>> getInstruments(
-            @RequestHeader(value = "X-Branch-Id", required = false) Long branchId,
+            @RequestParam Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(instrumentService.getInstrumentsByBranch(u.getTenantId(), branchId));
     }
@@ -183,5 +185,82 @@ public class InstrumentController {
         limitSet.setCreatedBy(u.getUser());
         limitSet.setTenantId(u.getTenantId());
         return ResponseEntity.status(HttpStatus.CREATED).body(calibrationLimitSetRepository.save(limitSet));
+    }
+
+    // ── Operational Lists ────────────────────────────────────────────────────
+
+    @GetMapping("/lists/active")
+    @PreAuthorize("hasAuthority('INSTRUMENT_VIEW')")
+    @Operation(summary = "Active instruments list — status = AVAILABLE",
+            description = "Instruments currently usable in the branch.")
+    public ResponseEntity<List<InstrumentMaster>> getActiveInstruments(
+            @RequestParam Long branchId,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(
+                instrumentMasterRepository.findByTenantIdAndBranchIdAndStatus(u.getTenantId(), branchId, "AVAILABLE"));
+    }
+
+    @GetMapping("/lists/overdue-calibration")
+    @PreAuthorize("hasAuthority('CALIBRATION_SCHEDULE_VIEW')")
+    @Operation(summary = "Instruments overdue for calibration",
+            description = "Calibration due date is in the past and the calibration record is not yet completed/approved.")
+    public ResponseEntity<List<InstrumentCalibration>> getOverdueCalibrations(
+            @RequestParam Long branchId,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(
+                instrumentCalibrationRepository.findOverdueForCalibration(
+                        u.getTenantId(), branchId, LocalDate.now()));
+    }
+
+    @GetMapping("/lists/ready-for-calibration")
+    @PreAuthorize("hasAuthority('CALIBRATION_SCHEDULE_VIEW')")
+    @Operation(summary = "Instruments ready for calibration",
+            description = "Instrument is AVAILABLE and calibration is SCHEDULED within the window (default next 7 days).")
+    public ResponseEntity<List<InstrumentCalibration>> getReadyForCalibration(
+            @RequestParam Long branchId,
+            @RequestParam(defaultValue = "7") int windowDays,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        LocalDate today = LocalDate.now();
+        return ResponseEntity.ok(
+                instrumentCalibrationRepository.findReadyForCalibration(
+                        u.getTenantId(), branchId, today, today.plusDays(windowDays)));
+    }
+
+    @GetMapping("/lists/pending-calibration-approval")
+    @PreAuthorize("hasAuthority('CALIBRATION_REVIEW')")
+    @Operation(summary = "Calibrations pending QA/QC approval",
+            description = "Calibration completed — waiting for reviewer/approver. Status = TEST_COMPLETED.")
+    public ResponseEntity<List<InstrumentCalibration>> getPendingCalibrationApproval(
+            @RequestParam Long branchId,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(
+                instrumentCalibrationRepository.findByTenant_IdAndBranch_IdAndStatus(
+                        u.getTenantId(), branchId, "TEST_COMPLETED"));
+    }
+
+    @GetMapping("/{instrumentId}/calibration-lifecycle")
+    @PreAuthorize("hasAuthority('CALIBRATION_SCHEDULE_VIEW')")
+    @Operation(summary = "Full calibration lifecycle for an instrument",
+            description = "All calibration records ordered chronologically: " +
+                    "CREATED → ASSIGNED → IN_PROGRESS → COMPLETED → TEST_COMPLETED → APPROVED → ARCHIVED.")
+    public ResponseEntity<List<InstrumentCalibration>> getCalibrationLifecycle(
+            @PathVariable Long instrumentId) {
+        return ResponseEntity.ok(
+                instrumentCalibrationRepository.findByInstrumentIdOrderByCreatedAtAsc(instrumentId));
+    }
+
+    @GetMapping("/lists/due-for-delivery")
+    @PreAuthorize("hasAuthority('ORDER_REQUEST_VIEW')")
+    @Operation(summary = "Instruments due for delivery — ORDER_PLACED instrument order requests",
+            description = "All INSTRUMENT order requests in ORDER_PLACED status with expected delivery " +
+                    "within the next daysAhead days (default 30).")
+    public ResponseEntity<List<com.sivayahealth.lims.entity.OrderRequest>> getInstrumentsDueForDelivery(
+            @RequestParam(defaultValue = "30") int daysAhead,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(
+                orderRequestRepository.findDueForDelivery(u.getTenantId(), LocalDate.now().plusDays(daysAhead))
+                        .stream()
+                        .filter(o -> "INSTRUMENT".equals(o.getRequestType()))
+                        .toList());
     }
 }

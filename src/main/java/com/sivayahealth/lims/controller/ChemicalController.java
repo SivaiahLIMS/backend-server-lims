@@ -4,6 +4,7 @@ import com.sivayahealth.lims.dto.chemical.BranchChemicalAvailability;
 import com.sivayahealth.lims.dto.chemical.ChemicalLabelDto;
 import com.sivayahealth.lims.dto.chemical.ChemicalSearchResult;
 import com.sivayahealth.lims.entity.*;
+import com.sivayahealth.lims.repository.OrderRequestRepository;
 import com.sivayahealth.lims.security.LimsUserDetails;
 import com.sivayahealth.lims.service.ChemicalService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +30,7 @@ import java.util.Map;
 public class ChemicalController {
 
     private final ChemicalService chemicalService;
+    private final OrderRequestRepository orderRequestRepository;
 
     @GetMapping("/masters")
     @PreAuthorize("hasAuthority('CHEMICAL_MASTER_VIEW')")
@@ -185,5 +187,40 @@ public class ChemicalController {
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(
                 chemicalService.getAvailableInBranchExpiringSoon(u.getTenantId(), branchId, minVolume, daysAhead));
+    }
+
+    // ── Delivery Tracking Lists ──────────────────────────────────────────────
+
+    @GetMapping("/lists/due-for-delivery")
+    @PreAuthorize("hasAuthority('ORDER_REQUEST_VIEW')")
+    @Operation(summary = "Chemicals due for delivery — ORDER_PLACED chemical order requests",
+            description = "All CHEMICAL order requests in ORDER_PLACED status with expected delivery " +
+                    "within the next daysAhead days (default 30). " +
+                    "Use /order-requests/due-for-delivery for combined chemical+instrument view.")
+    public ResponseEntity<List<OrderRequest>> getChemicalsDueForDelivery(
+            @RequestParam(defaultValue = "30") int daysAhead,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(
+                orderRequestRepository.findDueForDelivery(u.getTenantId(), LocalDate.now().plusDays(daysAhead))
+                        .stream()
+                        .filter(o -> "CHEMICAL".equals(o.getRequestType()))
+                        .toList());
+    }
+
+    @GetMapping("/lists/available-stock")
+    @PreAuthorize("hasAuthority('CHEMICAL_STOCK_VIEW')")
+    @Operation(summary = "Full available stock list — all AVAILABLE chemicals with current quantity and FEFO",
+            description = "Returns all chemicals with status=AVAILABLE across the tenant. " +
+                    "Results include expiry date for FEFO-based selection. " +
+                    "Use ?branchId= to filter by specific branch.")
+    public ResponseEntity<BranchChemicalAvailability> getAvailableStockList(
+            @RequestParam Long branchId,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(
+                chemicalService.getAvailableInBranch(
+                        u.getTenantId(), branchId,
+                        BigDecimal.ZERO,
+                        LocalDate.of(2000, 1, 1),
+                        LocalDate.now().plusYears(20)));
     }
 }
