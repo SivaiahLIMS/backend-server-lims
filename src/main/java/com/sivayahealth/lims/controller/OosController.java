@@ -1,21 +1,28 @@
 package com.sivayahealth.lims.controller;
 
+import com.sivayahealth.lims.dto.oos.*;
 import com.sivayahealth.lims.entity.*;
 import com.sivayahealth.lims.exception.LimsException;
 import com.sivayahealth.lims.repository.*;
+import com.sivayahealth.lims.security.LimsUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 
 @RestController
-@RequestMapping("/api/oos")
+@RequestMapping("/oos")
 @RequiredArgsConstructor
+@SecurityRequirement(name = "bearerAuth")
 @Tag(name = "OOS/OOT", description = "Out-of-Specification and Out-of-Trend investigation management")
 public class OosController {
 
@@ -25,39 +32,60 @@ public class OosController {
     private final AppUserRepository appUserRepository;
 
     @GetMapping
-    @Operation(summary = "List all OOS test results")
-    public List<DocumentTestResult> getOosResults(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader(value = "X-Branch-Id", required = false) Long branchId) {
-        return documentTestResultRepository.findByTenantIdAndBranchIdAndOosTrue(tenantId, branchId);
+    @PreAuthorize("hasAuthority('OOS_VIEW')")
+    @Operation(summary = "List all OOS test results for branch",
+               description = "Requires: OOS_VIEW. Scoped by X-Branch-Id header.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    public ResponseEntity<List<DocumentTestResult>> getOosResults(
+            @RequestHeader("X-Branch-Id") Long branchId,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(
+                documentTestResultRepository.findByTenantIdAndBranchIdAndOosTrue(u.getTenantId(), branchId)
+        );
     }
 
     @GetMapping("/worksheet/{worksheetId}")
-    @Operation(summary = "Get OOS results for a worksheet")
-    public List<DocumentTestResult> getOosByWorksheet(@PathVariable Long worksheetId) {
-        return documentTestResultRepository.findByWorksheetExecution_IdAndOosTrue(worksheetId);
+    @PreAuthorize("hasAuthority('OOS_VIEW')")
+    @Operation(summary = "Get OOS results for a worksheet",
+               description = "Requires: OOS_VIEW")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "404", description = "Worksheet not found")
+    })
+    public ResponseEntity<List<DocumentTestResult>> getOosByWorksheet(@PathVariable Long worksheetId) {
+        return ResponseEntity.ok(
+                documentTestResultRepository.findByWorksheetExecution_IdAndOosTrue(worksheetId)
+        );
     }
 
     @PostMapping("/{testResultId}/investigate")
-    @Operation(summary = "Initiate OOS investigation for a test result")
+    @PreAuthorize("hasAuthority('OOS_INVESTIGATE')")
+    @Operation(summary = "Initiate OOS investigation for a test result",
+               description = "Requires: OOS_INVESTIGATE. Scoped by X-Branch-Id header.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Investigation initiated"),
+        @ApiResponse(responseCode = "404", description = "Test result not found"),
+        @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     public ResponseEntity<DocumentTestResult> investigate(
             @PathVariable Long testResultId,
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader(value = "X-Branch-Id", required = false) Long branchId,
-            @RequestBody Map<String, Object> body) {
-
+            @RequestHeader("X-Branch-Id") Long branchId,
+            @RequestBody InitiateOosInvestigationRequest body,
+            @AuthenticationPrincipal LimsUserDetails u) {
         DocumentTestResult result = documentTestResultRepository.findById(testResultId)
                 .orElseThrow(() -> LimsException.notFound("Test result not found: " + testResultId));
 
-        Long assigneeId = body.containsKey("assigneeId") ? Long.valueOf(body.get("assigneeId").toString()) : null;
-        String description = body.containsKey("description") ? body.get("description").toString() : "OOS Investigation";
-        Long requestedById = body.containsKey("requestedById") ? Long.valueOf(body.get("requestedById").toString()) : null;
-
-        AppUser assignee = assigneeId != null ? appUserRepository.findById(assigneeId).orElse(null) : null;
-        AppUser requestedBy = requestedById != null ? appUserRepository.findById(requestedById).orElse(null) : null;
+        AppUser assignee = body.getAssigneeId() != null
+                ? appUserRepository.findById(body.getAssigneeId()).orElse(null) : null;
+        AppUser requestedBy = body.getRequestedById() != null
+                ? appUserRepository.findById(body.getRequestedById()).orElse(null) : null;
+        String description = body.getDescription() != null ? body.getDescription() : "OOS Investigation";
 
         TaskMaster task = TaskMaster.builder()
-                .tenantId(tenantId)
+                .tenantId(u.getTenantId())
                 .branchId(branchId)
                 .type("OOS_INVESTIGATION")
                 .status("CREATED")
@@ -72,7 +100,7 @@ public class OosController {
         task = taskMasterRepository.save(task);
 
         TaskHistory history = TaskHistory.builder()
-                .tenantId(tenantId)
+                .tenantId(u.getTenantId())
                 .branchId(branchId)
                 .task(task)
                 .oldStatus(null)
@@ -85,26 +113,27 @@ public class OosController {
 
         result.setOosInvestigationTask(task);
         result.setOosReason(description);
-        result = documentTestResultRepository.save(result);
-
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(documentTestResultRepository.save(result));
     }
 
     @PostMapping("/tasks/{taskId}/approve")
-    @Operation(summary = "Approve OOS investigation task")
+    @PreAuthorize("hasAuthority('OOS_APPROVE')")
+    @Operation(summary = "Approve OOS investigation task",
+               description = "Requires: OOS_APPROVE. Scoped by X-Branch-Id header.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Approved"),
+        @ApiResponse(responseCode = "404", description = "Task not found"),
+        @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     public ResponseEntity<TaskMaster> approveInvestigation(
             @PathVariable Long taskId,
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader(value = "X-Branch-Id", required = false) Long branchId,
-            @RequestBody Map<String, Object> body) {
-
+            @RequestHeader("X-Branch-Id") Long branchId,
+            @RequestBody ApproveOosInvestigationRequest body,
+            @AuthenticationPrincipal LimsUserDetails u) {
         TaskMaster task = taskMasterRepository.findById(taskId)
                 .orElseThrow(() -> LimsException.notFound("Task not found: " + taskId));
 
-        Long approverId = Long.valueOf(body.get("approverId").toString());
-        String comment = body.containsKey("comment") ? body.get("comment").toString() : null;
-        AppUser approver = appUserRepository.findById(approverId).orElse(null);
-
+        AppUser approver = appUserRepository.findById(body.getApproverId()).orElse(null);
         String old = task.getStatus();
         task.setStatus("APPROVED");
         task.setApprovedBy(approver);
@@ -112,14 +141,14 @@ public class OosController {
         task = taskMasterRepository.save(task);
 
         TaskHistory history = TaskHistory.builder()
-                .tenantId(tenantId)
+                .tenantId(u.getTenantId())
                 .branchId(branchId)
                 .task(task)
                 .oldStatus(old)
                 .newStatus("APPROVED")
                 .changedBy(approver)
                 .changedAt(LocalDateTime.now())
-                .comment(comment)
+                .comment(body.getComment())
                 .build();
         taskHistoryRepository.save(history);
 

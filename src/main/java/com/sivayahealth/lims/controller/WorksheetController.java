@@ -1,10 +1,14 @@
 package com.sivayahealth.lims.controller;
 
+import com.sivayahealth.lims.dto.worksheet.*;
 import com.sivayahealth.lims.entity.*;
 import com.sivayahealth.lims.security.LimsUserDetails;
 import com.sivayahealth.lims.service.WorksheetDocumentService;
 import com.sivayahealth.lims.service.WorksheetService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -14,7 +18,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -24,7 +27,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Tag(name = "Worksheet Management",
      description = "Worksheet lifecycle, execution data, and review history. " +
-                   "ALL endpoints require branchId query param + JWT tenant scope.")
+                   "Requires X-Branch-Id header on all endpoints.")
+@SecurityRequirement(name = "bearerAuth")
 public class WorksheetController {
 
     private final WorksheetService         worksheetService;
@@ -34,19 +38,31 @@ public class WorksheetController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('WORKSHEET_VIEW')")
-    @Operation(summary = "List all worksheets for tenant + branch")
+    @Operation(summary = "List all worksheets", description = "Requires: WORKSHEET_VIEW")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     public ResponseEntity<List<WorksheetMaster>> listAll(
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(worksheetService.listAll(u.getTenantId(), branchId));
     }
 
     @GetMapping("/by-status")
     @PreAuthorize("hasAuthority('WORKSHEET_VIEW')")
-    @Operation(summary = "List worksheets filtered by status",
-               description = "Valid statuses: DRAFT, SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED, CLOSED")
+    @Operation(summary = "List worksheets by status",
+               description = "Requires: WORKSHEET_VIEW. " +
+                             "Valid statuses: DRAFT, SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED, CLOSED")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "400", description = "Invalid status value"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     public ResponseEntity<List<WorksheetMaster>> listByStatus(
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @RequestParam String status,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(worksheetService.listByStatus(u.getTenantId(), branchId, status));
@@ -54,29 +70,43 @@ public class WorksheetController {
 
     @GetMapping("/archived")
     @PreAuthorize("hasAuthority('WORKSHEET_VIEW')")
-    @Operation(summary = "List archived worksheets for tenant + branch")
+    @Operation(summary = "List archived worksheets", description = "Requires: WORKSHEET_VIEW")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     public ResponseEntity<List<WorksheetMaster>> listArchived(
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(worksheetService.listArchived(u.getTenantId(), branchId));
     }
 
     @GetMapping("/assigned-to/{userId}")
     @PreAuthorize("hasAuthority('WORKSHEET_VIEW')")
-    @Operation(summary = "List worksheets assigned to a specific user")
+    @Operation(summary = "List worksheets assigned to a specific user",
+               description = "Requires: WORKSHEET_VIEW")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
     public ResponseEntity<List<WorksheetMaster>> listAssignedTo(
             @PathVariable Long userId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(worksheetService.listAssignedTo(u.getTenantId(), branchId, userId));
     }
 
     @GetMapping("/search")
     @PreAuthorize("hasAuthority('WORKSHEET_VIEW')")
-    @Operation(summary = "Search worksheet history with optional filters",
-               description = "All filters optional: status, isArchived, productId, assignedToId, batchNo, from (ISO datetime), to (ISO datetime).")
+    @Operation(summary = "Search worksheets with optional filters",
+               description = "Requires: WORKSHEET_VIEW. " +
+                             "All filters optional: status, isArchived, productId, assignedToId, batchNo, from, to")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "400", description = "Invalid filter values")
+    })
     public ResponseEntity<List<WorksheetMaster>> search(
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Boolean isArchived,
             @RequestParam(required = false) Long productId,
@@ -94,10 +124,14 @@ public class WorksheetController {
 
     @GetMapping("/{worksheetId}")
     @PreAuthorize("hasAuthority('WORKSHEET_VIEW')")
-    @Operation(summary = "Get a single worksheet by ID (tenant + branch scoped)")
+    @Operation(summary = "Get a single worksheet by ID", description = "Requires: WORKSHEET_VIEW")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "404", description = "Worksheet not found")
+    })
     public ResponseEntity<WorksheetMaster> getById(
             @PathVariable Long worksheetId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(worksheetService.getById(u.getTenantId(), branchId, worksheetId));
     }
@@ -106,27 +140,43 @@ public class WorksheetController {
 
     @PostMapping
     @PreAuthorize("hasAuthority('WORKSHEET_CREATE')")
-    @Operation(summary = "Create a new worksheet (status starts as DRAFT)",
-               description = "Optional body fields: batchNo, productId, templateId.")
+    @Operation(summary = "Create a new worksheet (status: DRAFT)",
+               description = "Requires: WORKSHEET_CREATE")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Created"),
+        @ApiResponse(responseCode = "400", description = "Invalid request"),
+        @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     public ResponseEntity<WorksheetMaster> create(
-            @RequestBody WorksheetMaster body,
-            @RequestParam Long branchId,
+            @RequestBody CreateWorksheetRequest body,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
-        body.setTenant(null);
-        body.setBranch(null);
+        WorksheetMaster data = new WorksheetMaster();
+        data.setBatchNo(body.getBatchNo());
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(worksheetService.create(u.getTenantId(), branchId, u.getUser().getId(), body));
+                .body(worksheetService.create(u.getTenantId(), branchId, u.getUser().getId(), data));
     }
 
     @PutMapping("/{worksheetId}")
     @PreAuthorize("hasAuthority('WORKSHEET_EDIT')")
     @Operation(summary = "Update worksheet fields (only DRAFT or REJECTED)",
-               description = "Editable fields: batchNo, productId, templateId.")
+               description = "Requires: WORKSHEET_EDIT. Editable fields: batchNo, productId, templateId, documentVersionId.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Updated"),
+        @ApiResponse(responseCode = "400", description = "Worksheet not in editable state"),
+        @ApiResponse(responseCode = "404", description = "Worksheet not found")
+    })
     public ResponseEntity<WorksheetMaster> update(
             @PathVariable Long worksheetId,
-            @RequestParam Long branchId,
-            @RequestBody Map<String, Object> fields,
+            @RequestHeader("X-Branch-Id") Long branchId,
+            @RequestBody UpdateWorksheetRequest body,
             @AuthenticationPrincipal LimsUserDetails u) {
+        Map<String, Object> fields = Map.of(
+            "batchNo",           body.getBatchNo() != null ? body.getBatchNo() : "",
+            "productId",         body.getProductId(),
+            "templateId",        body.getTemplateId(),
+            "documentVersionId", body.getDocumentVersionId()
+        );
         return ResponseEntity.ok(
                 worksheetService.update(u.getTenantId(), branchId, worksheetId,
                         u.getUser().getId(), fields));
@@ -137,26 +187,35 @@ public class WorksheetController {
     @PostMapping("/{worksheetId}/assign")
     @PreAuthorize("hasAuthority('WORKSHEET_ASSIGN')")
     @Operation(summary = "Assign a worksheet to an analyst",
-               description = "Body: assignToUserId (Long).")
+               description = "Requires: WORKSHEET_ASSIGN")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Assigned"),
+        @ApiResponse(responseCode = "404", description = "Worksheet or user not found")
+    })
     public ResponseEntity<WorksheetMaster> assign(
             @PathVariable Long worksheetId,
-            @RequestParam Long branchId,
-            @RequestBody Map<String, Object> body,
+            @RequestHeader("X-Branch-Id") Long branchId,
+            @RequestBody AssignWorksheetRequest body,
             @AuthenticationPrincipal LimsUserDetails u) {
-        Long assignToUserId = ((Number) body.get("assignToUserId")).longValue();
         return ResponseEntity.ok(
                 worksheetService.assign(u.getTenantId(), branchId, worksheetId,
-                        assignToUserId, u.getUser().getId()));
+                        body.getAssignToUserId(), u.getUser().getId()));
     }
 
     // ── Workflow ──────────────────────────────────────────────────────────────
 
     @PostMapping("/{worksheetId}/submit")
     @PreAuthorize("hasAuthority('WORKSHEET_EDIT')")
-    @Operation(summary = "Submit worksheet for review (DRAFT → SUBMITTED)")
+    @Operation(summary = "Submit worksheet for review (DRAFT → SUBMITTED)",
+               description = "Requires: WORKSHEET_EDIT")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Submitted"),
+        @ApiResponse(responseCode = "400", description = "Worksheet not in DRAFT state"),
+        @ApiResponse(responseCode = "404", description = "Worksheet not found")
+    })
     public ResponseEntity<WorksheetMaster> submit(
             @PathVariable Long worksheetId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(
                 worksheetService.submit(u.getTenantId(), branchId, worksheetId,
@@ -165,10 +224,15 @@ public class WorksheetController {
 
     @PostMapping("/{worksheetId}/start-review")
     @PreAuthorize("hasAuthority('WORKSHEET_REVIEW')")
-    @Operation(summary = "Start review of a submitted worksheet (SUBMITTED → UNDER_REVIEW)")
+    @Operation(summary = "Start review (SUBMITTED → UNDER_REVIEW)",
+               description = "Requires: WORKSHEET_REVIEW")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Under review"),
+        @ApiResponse(responseCode = "400", description = "Worksheet not in SUBMITTED state")
+    })
     public ResponseEntity<WorksheetMaster> startReview(
             @PathVariable Long worksheetId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(
                 worksheetService.startReview(u.getTenantId(), branchId, worksheetId,
@@ -177,13 +241,19 @@ public class WorksheetController {
 
     @PostMapping("/{worksheetId}/approve")
     @PreAuthorize("hasAuthority('WORKSHEET_APPROVE')")
-    @Operation(summary = "Approve a worksheet (UNDER_REVIEW → APPROVED)")
+    @Operation(summary = "Approve worksheet (UNDER_REVIEW → APPROVED)",
+               description = "Requires: WORKSHEET_APPROVE")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Approved"),
+        @ApiResponse(responseCode = "400", description = "Worksheet not in UNDER_REVIEW state"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions")
+    })
     public ResponseEntity<WorksheetMaster> approve(
             @PathVariable Long worksheetId,
-            @RequestParam Long branchId,
-            @RequestBody(required = false) Map<String, String> body,
+            @RequestHeader("X-Branch-Id") Long branchId,
+            @RequestBody(required = false) ReviewWorksheetRequest body,
             @AuthenticationPrincipal LimsUserDetails u) {
-        String comments = body != null ? body.get("comments") : null;
+        String comments = body != null ? body.getComments() : null;
         return ResponseEntity.ok(
                 worksheetService.approve(u.getTenantId(), branchId, worksheetId,
                         u.getUser().getId(), comments));
@@ -191,13 +261,18 @@ public class WorksheetController {
 
     @PostMapping("/{worksheetId}/reject")
     @PreAuthorize("hasAuthority('WORKSHEET_APPROVE')")
-    @Operation(summary = "Reject a worksheet (UNDER_REVIEW → REJECTED)")
+    @Operation(summary = "Reject worksheet (UNDER_REVIEW → REJECTED)",
+               description = "Requires: WORKSHEET_APPROVE")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Rejected"),
+        @ApiResponse(responseCode = "400", description = "Worksheet not in UNDER_REVIEW state")
+    })
     public ResponseEntity<WorksheetMaster> reject(
             @PathVariable Long worksheetId,
-            @RequestParam Long branchId,
-            @RequestBody(required = false) Map<String, String> body,
+            @RequestHeader("X-Branch-Id") Long branchId,
+            @RequestBody(required = false) ReviewWorksheetRequest body,
             @AuthenticationPrincipal LimsUserDetails u) {
-        String comments = body != null ? body.get("comments") : null;
+        String comments = body != null ? body.getComments() : null;
         return ResponseEntity.ok(
                 worksheetService.reject(u.getTenantId(), branchId, worksheetId,
                         u.getUser().getId(), comments));
@@ -205,13 +280,18 @@ public class WorksheetController {
 
     @PostMapping("/{worksheetId}/close")
     @PreAuthorize("hasAuthority('WORKSHEET_APPROVE')")
-    @Operation(summary = "Close an approved worksheet (APPROVED → CLOSED)")
+    @Operation(summary = "Close approved worksheet (APPROVED → CLOSED)",
+               description = "Requires: WORKSHEET_APPROVE")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Closed"),
+        @ApiResponse(responseCode = "400", description = "Worksheet not in APPROVED state")
+    })
     public ResponseEntity<WorksheetMaster> close(
             @PathVariable Long worksheetId,
-            @RequestParam Long branchId,
-            @RequestBody(required = false) Map<String, String> body,
+            @RequestHeader("X-Branch-Id") Long branchId,
+            @RequestBody(required = false) ReviewWorksheetRequest body,
             @AuthenticationPrincipal LimsUserDetails u) {
-        String comments = body != null ? body.get("comments") : null;
+        String comments = body != null ? body.getComments() : null;
         return ResponseEntity.ok(
                 worksheetService.close(u.getTenantId(), branchId, worksheetId,
                         u.getUser().getId(), comments));
@@ -221,10 +301,14 @@ public class WorksheetController {
 
     @PostMapping("/{worksheetId}/archive")
     @PreAuthorize("hasAuthority('WORKSHEET_ARCHIVE')")
-    @Operation(summary = "Archive a worksheet")
+    @Operation(summary = "Archive a worksheet", description = "Requires: WORKSHEET_ARCHIVE")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Archived"),
+        @ApiResponse(responseCode = "409", description = "Already archived")
+    })
     public ResponseEntity<WorksheetMaster> archive(
             @PathVariable Long worksheetId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(
                 worksheetService.archive(u.getTenantId(), branchId, worksheetId,
@@ -233,10 +317,14 @@ public class WorksheetController {
 
     @PostMapping("/{worksheetId}/unarchive")
     @PreAuthorize("hasAuthority('WORKSHEET_ARCHIVE')")
-    @Operation(summary = "Unarchive a worksheet")
+    @Operation(summary = "Unarchive a worksheet", description = "Requires: WORKSHEET_ARCHIVE")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Unarchived"),
+        @ApiResponse(responseCode = "404", description = "Worksheet not found")
+    })
     public ResponseEntity<WorksheetMaster> unarchive(
             @PathVariable Long worksheetId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(
                 worksheetService.unarchive(u.getTenantId(), branchId, worksheetId,
@@ -247,10 +335,15 @@ public class WorksheetController {
 
     @GetMapping("/{worksheetId}/execution-data")
     @PreAuthorize("hasAuthority('WORKSHEET_VIEW')")
-    @Operation(summary = "Get all execution data entries for a worksheet")
+    @Operation(summary = "Get all execution data entries for a worksheet",
+               description = "Requires: WORKSHEET_VIEW")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "404", description = "Worksheet not found")
+    })
     public ResponseEntity<List<WorksheetExecutionData>> getExecutionData(
             @PathVariable Long worksheetId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(
                 worksheetService.getExecutionData(u.getTenantId(), branchId, worksheetId));
@@ -259,10 +352,16 @@ public class WorksheetController {
     @PostMapping("/{worksheetId}/execution-data")
     @PreAuthorize("hasAuthority('WORKSHEET_EDIT')")
     @Operation(summary = "Add a single execution data entry",
-               description = "Body fields: fieldId, fieldName, value, unit, chemicalId, instrumentId, comment, reason.")
+               description = "Requires: WORKSHEET_EDIT. " +
+                             "Fields: fieldId, fieldName, value, unit, chemicalId, instrumentId, comment, reason.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Created"),
+        @ApiResponse(responseCode = "400", description = "Invalid data"),
+        @ApiResponse(responseCode = "404", description = "Worksheet not found")
+    })
     public ResponseEntity<WorksheetExecutionData> addExecutionData(
             @PathVariable Long worksheetId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @RequestBody Map<String, Object> body,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.status(HttpStatus.CREATED).body(
@@ -272,11 +371,15 @@ public class WorksheetController {
 
     @PutMapping("/{worksheetId}/execution-data")
     @PreAuthorize("hasAuthority('WORKSHEET_EDIT')")
-    @Operation(summary = "Replace all execution data for a worksheet (bulk upsert)",
-               description = "Body: array of execution data objects. Replaces ALL existing data for the worksheet.")
+    @Operation(summary = "Replace all execution data (bulk upsert)",
+               description = "Requires: WORKSHEET_EDIT. Replaces ALL existing data for the worksheet.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Replaced"),
+        @ApiResponse(responseCode = "404", description = "Worksheet not found")
+    })
     public ResponseEntity<Void> replaceExecutionData(
             @PathVariable Long worksheetId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @RequestBody List<Map<String, Object>> rows,
             @AuthenticationPrincipal LimsUserDetails u) {
         worksheetService.replaceExecutionData(u.getTenantId(), branchId, worksheetId,
@@ -288,10 +391,15 @@ public class WorksheetController {
 
     @GetMapping("/{worksheetId}/review-history")
     @PreAuthorize("hasAuthority('WORKSHEET_VIEW')")
-    @Operation(summary = "Get full review/status-change history for a worksheet")
+    @Operation(summary = "Get full review/status-change history for a worksheet",
+               description = "Requires: WORKSHEET_VIEW")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "404", description = "Worksheet not found")
+    })
     public ResponseEntity<List<WorksheetReviewHistory>> reviewHistory(
             @PathVariable Long worksheetId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(
                 worksheetService.getReviewHistory(u.getTenantId(), branchId, worksheetId));
@@ -301,13 +409,18 @@ public class WorksheetController {
 
     @GetMapping("/{worksheetId}/template")
     @PreAuthorize("hasAuthority('DOCUMENT_TEMPLATE_VIEW')")
-    @Operation(summary = "Get full document template with test cases, blocks, slots and saved values",
-               description = "Returns the structured document for readonly (reviewer) or analyst fill mode. " +
-                             "Each test case contains ordered blocks (PARAGRAPH/TABLE/IMAGE/FORMULA) " +
-                             "and the list of -- field slots with any already-saved values.")
+    @Operation(summary = "Get structured document template with test cases, blocks, and field slots",
+               description = "Requires: DOCUMENT_TEMPLATE_VIEW. " +
+                             "Returns ordered test cases (each ending with a FORMULA block), " +
+                             "field slots, and any saved analyst values.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "400", description = "No document version linked"),
+        @ApiResponse(responseCode = "404", description = "Worksheet not found")
+    })
     public ResponseEntity<WorksheetDocumentService.WorksheetTemplateView> getTemplate(
             @PathVariable Long worksheetId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(
                 worksheetDocumentService.getTemplateView(u.getTenantId(), branchId, worksheetId));
@@ -317,46 +430,48 @@ public class WorksheetController {
 
     @PutMapping("/{worksheetId}/fields/{slotId}")
     @PreAuthorize("hasAuthority('WORKSHEET_FIELD_FILL')")
-    @Operation(summary = "Save or update a single -- field value (analyst fill mode)",
-               description = "Body: { numericValue, unit, qualifier, comment }. " +
-                             "unit options: ml/L/g/kg/mg/µg/mEq/IU/%. " +
-                             "qualifier options: EXACT/APPROX/TRACE/ND. " +
-                             "Upserts — safe to call multiple times for the same slot.")
+    @Operation(summary = "Save or update a -- field value (analyst fill mode)",
+               description = "Requires: WORKSHEET_FIELD_FILL. " +
+                             "unit: ml/L/g/kg/mg/µg/mEq/IU/%. qualifier: EXACT/APPROX/TRACE/ND. " +
+                             "Safe to call multiple times — upserts.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Saved"),
+        @ApiResponse(responseCode = "400", description = "Worksheet not in fillable state"),
+        @ApiResponse(responseCode = "404", description = "Slot not found")
+    })
     public ResponseEntity<WorksheetFieldValue> saveFieldValue(
             @PathVariable Long worksheetId,
             @PathVariable Long slotId,
-            @RequestParam Long branchId,
-            @RequestBody Map<String, Object> body,
+            @RequestHeader("X-Branch-Id") Long branchId,
+            @RequestBody SaveFieldValueRequest body,
             @AuthenticationPrincipal LimsUserDetails u) {
-
-        BigDecimal numericValue = body.containsKey("numericValue") && body.get("numericValue") != null
-                ? new BigDecimal(body.get("numericValue").toString()) : null;
-        String unit      = (String) body.get("unit");
-        String qualifier = (String) body.get("qualifier");
-        String comment   = (String) body.get("comment");
-
         return ResponseEntity.ok(
                 worksheetDocumentService.saveFieldValue(
                         u.getTenantId(), branchId, worksheetId, u.getUser().getId(),
-                        slotId, numericValue, unit, qualifier, comment));
+                        slotId, body.getNumericValue(), body.getUnit(),
+                        body.getQualifier(), body.getComment()));
     }
 
     // ── Formula Computation ───────────────────────────────────────────────────
 
     @PostMapping("/{worksheetId}/test-cases/{testCaseId}/compute")
     @PreAuthorize("hasAuthority('WORKSHEET_RESULT_COMPUTE')")
-    @Operation(summary = "Compute formula result for a test case after all slots are filled",
-               description = "Evaluates the formula expression with analyst-supplied values. " +
-                             "Body: { resultUnit } (optional unit for the computed result). " +
-                             "Returns the stored WorksheetTestCaseResult.")
+    @Operation(summary = "Compute formula result for a test case",
+               description = "Requires: WORKSHEET_RESULT_COMPUTE. " +
+                             "All field slots must be filled before calling. " +
+                             "Evaluates formula_expression with analyst values.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Result computed"),
+        @ApiResponse(responseCode = "400", description = "Missing slot values or formula evaluation error"),
+        @ApiResponse(responseCode = "404", description = "Test case not found")
+    })
     public ResponseEntity<WorksheetTestCaseResult> computeResult(
             @PathVariable Long worksheetId,
             @PathVariable Long testCaseId,
-            @RequestParam Long branchId,
-            @RequestBody(required = false) Map<String, String> body,
+            @RequestHeader("X-Branch-Id") Long branchId,
+            @RequestBody(required = false) ComputeResultRequest body,
             @AuthenticationPrincipal LimsUserDetails u) {
-
-        String resultUnit = body != null ? body.get("resultUnit") : null;
+        String resultUnit = body != null ? body.getResultUnit() : null;
         return ResponseEntity.ok(
                 worksheetDocumentService.computeResult(
                         u.getTenantId(), branchId, worksheetId, testCaseId,
@@ -368,19 +483,22 @@ public class WorksheetController {
     @PostMapping("/{worksheetId}/test-cases/{testCaseId}/review")
     @PreAuthorize("hasAuthority('WORKSHEET_RESULT_REVIEW')")
     @Operation(summary = "Reviewer marks a test case result as PASS or FAIL",
-               description = "Body: { passFail: 'PASS'|'FAIL', comments: '...' }.")
+               description = "Requires: WORKSHEET_RESULT_REVIEW")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Reviewed"),
+        @ApiResponse(responseCode = "400", description = "Invalid passFail value or no computed result"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions"),
+        @ApiResponse(responseCode = "404", description = "Result not found")
+    })
     public ResponseEntity<WorksheetTestCaseResult> reviewResult(
             @PathVariable Long worksheetId,
             @PathVariable Long testCaseId,
-            @RequestParam Long branchId,
-            @RequestBody Map<String, String> body,
+            @RequestHeader("X-Branch-Id") Long branchId,
+            @RequestBody ReviewResultRequest body,
             @AuthenticationPrincipal LimsUserDetails u) {
-
-        String passFail  = body.get("passFail");
-        String comments  = body.get("comments");
         return ResponseEntity.ok(
                 worksheetDocumentService.reviewResult(
                         u.getTenantId(), branchId, worksheetId, testCaseId,
-                        u.getUser().getId(), passFail, comments));
+                        u.getUser().getId(), body.getPassFail(), body.getComments()));
     }
 }

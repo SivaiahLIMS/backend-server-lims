@@ -1,11 +1,18 @@
 package com.sivayahealth.lims.controller;
 
 import com.sivayahealth.lims.entity.*;
+import com.sivayahealth.lims.security.LimsUserDetails;
 import com.sivayahealth.lims.service.AnalyticsService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -13,58 +20,90 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/analytics")
+@RequestMapping("/analytics")
 @RequiredArgsConstructor
+@SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Analytics", description = "Trend analytics, utilization, and predictive intelligence")
 public class AnalyticsController {
 
     private final AnalyticsService analyticsService;
 
     @GetMapping("/products/{id}/oos-trend")
-    @Operation(summary = "Get OOS trend data for a product")
-    public Map<String, Object> getOosTrend(
+    @PreAuthorize("hasAuthority('ANALYTICS_VIEW')")
+    @Operation(summary = "Get OOS trend data for a product",
+               description = "Requires: ANALYTICS_VIEW. Scoped by X-Branch-Id header.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    public ResponseEntity<Map<String, Object>> getOosTrend(
             @PathVariable Long id,
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader(value =  "X-Branch-Id", required = false) Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        return analyticsService.getOosTrend(tenantId, branchId, from, to);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(analyticsService.getOosTrend(u.getTenantId(), branchId, from, to));
     }
 
     @GetMapping("/instruments/{id}/utilization")
-    @Operation(summary = "Get instrument utilization analytics")
-    public Map<String, Object> getInstrumentUtilization(
+    @PreAuthorize("hasAuthority('ANALYTICS_VIEW')")
+    @Operation(summary = "Get instrument utilization analytics",
+               description = "Requires: ANALYTICS_VIEW")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "404", description = "Instrument not found")
+    })
+    public ResponseEntity<Map<String, Object>> getInstrumentUtilization(
             @PathVariable Long id,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        return analyticsService.getInstrumentUtilization(id, from, to);
+        return ResponseEntity.ok(analyticsService.getInstrumentUtilization(id, from, to));
     }
 
     @GetMapping("/predictive-alerts")
-    @Operation(summary = "Get predictive alerts")
-    public List<PredictiveAlert> getPredictiveAlerts(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader(value = "X-Branch-Id", required = false) Long branchId,
-            @RequestParam(required = false, defaultValue = "false") boolean openOnly) {
-        return openOnly
-                ? analyticsService.getOpenPredictiveAlerts(tenantId, branchId)
-                : analyticsService.getPredictiveAlerts(tenantId, branchId);
+    @PreAuthorize("hasAuthority('ANALYTICS_VIEW')")
+    @Operation(summary = "Get predictive alerts for branch",
+               description = "Requires: ANALYTICS_VIEW. Use openOnly=true to filter to unacknowledged alerts.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    public ResponseEntity<List<PredictiveAlert>> getPredictiveAlerts(
+            @RequestHeader("X-Branch-Id") Long branchId,
+            @RequestParam(required = false, defaultValue = "false") boolean openOnly,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        List<PredictiveAlert> result = openOnly
+                ? analyticsService.getOpenPredictiveAlerts(u.getTenantId(), branchId)
+                : analyticsService.getPredictiveAlerts(u.getTenantId(), branchId);
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/predictive-alerts/{id}/acknowledge")
-    @Operation(summary = "Acknowledge a predictive alert")
-    public PredictiveAlert acknowledgeAlert(
+    @PreAuthorize("hasAuthority('ANALYTICS_VIEW')")
+    @Operation(summary = "Acknowledge a predictive alert",
+               description = "Requires: ANALYTICS_VIEW")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Acknowledged"),
+        @ApiResponse(responseCode = "404", description = "Alert not found"),
+        @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
+    public ResponseEntity<PredictiveAlert> acknowledgeAlert(
             @PathVariable Long id,
-            @RequestBody Map<String, Object> body) {
-        Long userId = Long.valueOf(body.get("userId").toString());
-        return analyticsService.acknowledgePredictiveAlert(id, userId);
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(analyticsService.acknowledgePredictiveAlert(id, u.getUser().getId()));
     }
 
     @GetMapping("/tasks/metrics")
-    @Operation(summary = "Get task metrics overview")
-    public Map<String, Object> getTaskMetrics(
-            @RequestHeader("X-Tenant-Id") Long tenantId,
-            @RequestHeader(value = "X-Branch-Id", required = false) Long branchId) {
-        return analyticsService.getTaskMetrics(tenantId, branchId);
+    @PreAuthorize("hasAuthority('ANALYTICS_VIEW')")
+    @Operation(summary = "Get task metrics overview for branch",
+               description = "Requires: ANALYTICS_VIEW. Scoped by X-Branch-Id header.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    public ResponseEntity<Map<String, Object>> getTaskMetrics(
+            @RequestHeader("X-Branch-Id") Long branchId,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(analyticsService.getTaskMetrics(u.getTenantId(), branchId));
     }
 }

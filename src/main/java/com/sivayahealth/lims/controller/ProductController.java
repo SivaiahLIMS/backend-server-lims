@@ -12,6 +12,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +27,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/products")
 @RequiredArgsConstructor
+@SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Product Registration",
      description = "Drug product / raw material registration with BOM, specification, attachments and workflow. " +
                    "ALL endpoints require tenant_id + branch_id scope.")
@@ -40,7 +42,7 @@ public class ProductController {
     @Operation(summary = "List / search products",
                description = "Required: branchId. Optional filters: status, name (partial), productType.")
     public ResponseEntity<List<ProductMaster>> list(
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String productType,
@@ -53,7 +55,7 @@ public class ProductController {
     @Operation(summary = "Get a single product by ID (tenant + branch scoped)")
     public ResponseEntity<ProductMaster> getById(
             @PathVariable Long productId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(productService.getById(u.getTenantId(), branchId, productId));
     }
@@ -71,7 +73,7 @@ public class ProductController {
                              "sampleQuantity, sampleUom, qcReviewerId, qcManagerId.")
     public ResponseEntity<ProductMaster> create(
             @RequestBody ProductMaster body,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         body.setBranch(null); // resolved in service
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -86,7 +88,7 @@ public class ProductController {
                              "branchId query param required for tenant+branch scope check.")
     public ResponseEntity<ProductMaster> update(
             @PathVariable Long productId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @RequestBody Map<String, Object> fields,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(
@@ -100,7 +102,7 @@ public class ProductController {
     @Operation(summary = "Submit product for review (DRAFT → UNDER_REVIEW)")
     public ResponseEntity<ProductMaster> submit(
             @PathVariable Long productId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(productService.submit(u.getTenantId(), branchId, productId, u.getUser().getId()));
     }
@@ -110,7 +112,7 @@ public class ProductController {
     @Operation(summary = "Approve product (UNDER_REVIEW → APPROVED)")
     public ResponseEntity<ProductMaster> approve(
             @PathVariable Long productId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @RequestBody(required = false) Map<String, String> body,
             @AuthenticationPrincipal LimsUserDetails u) {
         String comments = body != null ? body.get("comments") : null;
@@ -123,7 +125,7 @@ public class ProductController {
     @Operation(summary = "Reject product (UNDER_REVIEW → REJECTED)")
     public ResponseEntity<ProductMaster> reject(
             @PathVariable Long productId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @RequestBody(required = false) Map<String, String> body,
             @AuthenticationPrincipal LimsUserDetails u) {
         String comments = body != null ? body.get("comments") : null;
@@ -136,7 +138,7 @@ public class ProductController {
     @Operation(summary = "Workflow lifecycle history for a product")
     public ResponseEntity<List<ProductWorkflow>> workflowHistory(
             @PathVariable Long productId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(
                 productService.getWorkflowHistory(u.getTenantId(), branchId, productId));
@@ -147,7 +149,7 @@ public class ProductController {
     @Operation(summary = "Field-level audit trail for a product")
     public ResponseEntity<List<ProductAudit>> auditTrail(
             @PathVariable Long productId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(
                 productService.getAuditTrail(u.getTenantId(), branchId, productId));
@@ -160,7 +162,7 @@ public class ProductController {
     @Operation(summary = "Get product BOM / ingredient list")
     public ResponseEntity<List<ProductComposition>> getComposition(
             @PathVariable Long productId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(productService.getComposition(u.getTenantId(), branchId, productId));
     }
@@ -171,7 +173,7 @@ public class ProductController {
                description = "Required: ingredientId (chemical_master.id), quantity. Optional: uom, grade.")
     public ResponseEntity<ProductComposition> addIngredient(
             @PathVariable Long productId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @RequestBody Map<String, Object> body,
             @AuthenticationPrincipal LimsUserDetails u) {
         Long ingredientId = ((Number) body.get("ingredientId")).longValue();
@@ -190,7 +192,7 @@ public class ProductController {
     public ResponseEntity<Void> removeIngredient(
             @PathVariable Long productId,
             @PathVariable Long itemId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         productService.removeIngredient(u.getTenantId(), branchId, productId, itemId);
         return ResponseEntity.noContent().build();
@@ -203,7 +205,7 @@ public class ProductController {
     @Operation(summary = "Get specification (test methods, release criteria, stability)")
     public ResponseEntity<ProductSpecification> getSpec(
             @PathVariable Long productId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(productService.getSpec(u.getTenantId(), branchId, productId));
     }
@@ -215,7 +217,7 @@ public class ProductController {
                              "releaseCriteria, stabilityRequirements.")
     public ResponseEntity<ProductSpecification> upsertSpec(
             @PathVariable Long productId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @RequestBody Map<String, String> body,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(productService.upsertSpec(
@@ -233,7 +235,7 @@ public class ProductController {
     @Operation(summary = "List product attachments (COA template, MSDS, SDS, label, etc.)")
     public ResponseEntity<List<ProductAttachment>> getAttachments(
             @PathVariable Long productId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(productService.getAttachments(u.getTenantId(), branchId, productId));
     }
@@ -245,7 +247,7 @@ public class ProductController {
                              "filePath (storage path / URL from client upload).")
     public ResponseEntity<ProductAttachment> addAttachment(
             @PathVariable Long productId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @RequestBody Map<String, String> body,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.status(HttpStatus.CREATED).body(
@@ -260,7 +262,7 @@ public class ProductController {
     public ResponseEntity<Void> deleteAttachment(
             @PathVariable Long productId,
             @PathVariable Long attachmentId,
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         productService.deleteAttachment(u.getTenantId(), branchId, productId, attachmentId);
         return ResponseEntity.noContent().build();

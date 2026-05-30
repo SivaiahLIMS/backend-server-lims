@@ -17,4 +17,11 @@ public interface UserRoleRepository extends JpaRepository<UserRole, Long> {
     List<Long> findRoleIdsByUserId(@Param("userId") Long userId);
 
     void deleteByUserIdAndRoleId(Long userId, Long roleId);
+
+    List<UserRole> findByTenantId(Long tenantId);
+
+    List<UserRole> findByTenantIdAndRoleId(Long tenantId, Long roleId);
+
+    @Query("SELECT DISTINCT ur.role FROM UserRole ur WHERE ur.tenant.id = :tenantId")
+    List<com.sivayahealth.lims.entity.Role> findDistinctRolesByTenantId(@Param("tenantId") Long tenantId);
 }

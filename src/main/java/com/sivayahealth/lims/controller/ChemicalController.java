@@ -43,7 +43,7 @@ public class ChemicalController {
     @PreAuthorize("hasAuthority('CHEMICAL_MASTER_CREATE')")
     @Operation(summary = "Create a chemical master")
     public ResponseEntity<ChemicalMaster> createMaster(@RequestBody ChemicalMaster master,
-                                                       @AuthenticationPrincipal LimsUserDetails u) {
+                                                         @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(chemicalService.createChemicalMaster(u.getTenantId(), master));
     }
@@ -52,8 +52,8 @@ public class ChemicalController {
     @PreAuthorize("hasAuthority('CHEMICAL_REGISTER')")
     @Operation(summary = "Register a chemical batch")
     public ResponseEntity<ChemicalRegistration> register(@RequestBody ChemicalRegistration registration,
-                                                         @RequestParam Long branchId,
-                                                         @AuthenticationPrincipal LimsUserDetails u) {
+                                                          @RequestHeader("X-Branch-Id") Long branchId,
+                                                          @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(chemicalService.registerChemical(u.getTenantId(), branchId, registration, u.getUser().getId()));
     }
@@ -61,8 +61,8 @@ public class ChemicalController {
     @GetMapping("/stock")
     @PreAuthorize("hasAuthority('CHEMICAL_STOCK_VIEW')")
     @Operation(summary = "Get chemical stock for branch")
-    public ResponseEntity<List<ChemicalStock>> getStock(@RequestParam Long branchId,
-                                                        @AuthenticationPrincipal LimsUserDetails u) {
+    public ResponseEntity<List<ChemicalStock>> getStock(@RequestHeader("X-Branch-Id") Long branchId,
+                                                         @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(chemicalService.getStockByBranch(u.getTenantId(), branchId));
     }
 
@@ -70,12 +70,13 @@ public class ChemicalController {
     @PreAuthorize("hasAuthority('CHEMICAL_ISSUE')")
     @Operation(summary = "Issue chemical from stock")
     public ResponseEntity<ChemicalIssuance> issue(@PathVariable Long registrationId,
-                                                  @RequestBody Map<String, Object> body,
-                                                  @AuthenticationPrincipal LimsUserDetails u) {
+                                                   @RequestHeader("X-Branch-Id") Long branchId,
+                                                   @RequestBody Map<String, Object> body,
+                                                   @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 chemicalService.issueChemical(
                         u.getTenantId(),
-                        ((Number) body.get("branchId")).longValue(),
+                        branchId,
                         registrationId,
                         new BigDecimal(body.get("quantity").toString()),
                         ((Number) body.get("containers")).intValue(),
@@ -90,8 +91,8 @@ public class ChemicalController {
     @PreAuthorize("hasAuthority('CHEMICAL_DESTROY')")
     @Operation(summary = "Destroy chemical stock")
     public ResponseEntity<ChemicalDestruction> destroy(@PathVariable Long registrationId,
-                                                       @RequestBody Map<String, Object> body,
-                                                       @AuthenticationPrincipal LimsUserDetails u) {
+                                                        @RequestBody Map<String, Object> body,
+                                                        @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 chemicalService.destroyChemical(
                         u.getTenantId(),
@@ -119,7 +120,7 @@ public class ChemicalController {
     @PreAuthorize("hasAuthority('CHEMICAL_STOCK_VIEW')")
     @Operation(summary = "Download QR code PNG for a chemical bottle")
     public ResponseEntity<byte[]> getQrCode(@PathVariable Long registrationId,
-                                            @AuthenticationPrincipal LimsUserDetails u) {
+                                             @AuthenticationPrincipal LimsUserDetails u) {
         byte[] png = chemicalService.getRegistrationQrPng(u.getTenantId(), registrationId);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.IMAGE_PNG);
@@ -131,7 +132,7 @@ public class ChemicalController {
     @PreAuthorize("hasAuthority('CHEMICAL_STOCK_VIEW')")
     @Operation(summary = "Get label slip data (with QR base64) for a chemical bottle")
     public ResponseEntity<ChemicalLabelDto> getLabel(@PathVariable Long registrationId,
-                                                     @AuthenticationPrincipal LimsUserDetails u) {
+                                                      @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(chemicalService.getRegistrationLabel(u.getTenantId(), registrationId));
     }
 
@@ -139,7 +140,7 @@ public class ChemicalController {
     @PreAuthorize("hasAuthority('CHEMICAL_STOCK_VIEW')")
     @Operation(summary = "Get label slips for multiple chemical registrations")
     public ResponseEntity<List<ChemicalLabelDto>> getLabelsBatch(@RequestBody List<Long> registrationIds,
-                                                                 @AuthenticationPrincipal LimsUserDetails u) {
+                                                                   @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(chemicalService.getRegistrationLabels(u.getTenantId(), registrationIds));
     }
 
@@ -148,9 +149,9 @@ public class ChemicalController {
     @GetMapping("/search")
     @PreAuthorize("hasAuthority('CHEMICAL_STOCK_VIEW')")
     @Operation(summary = "Search chemicals by name with a minimum available volume filter",
-            description = "Returns chemicals (aggregated across all registrations) whose name matches " +
-                    "the query and whose total available stock is >= minVolume. " +
-                    "Includes per-registration detail lines.")
+               description = "Returns chemicals (aggregated across all registrations) whose name matches " +
+                             "the query and whose total available stock is >= minVolume. " +
+                             "Includes per-registration detail lines.")
     public ResponseEntity<List<ChemicalSearchResult>> searchByNameAndVolume(
             @RequestParam String name,
             @RequestParam(defaultValue = "0") BigDecimal minVolume,
@@ -161,9 +162,9 @@ public class ChemicalController {
     @GetMapping("/availability/branch/{branchId}")
     @PreAuthorize("hasAuthority('CHEMICAL_STOCK_VIEW')")
     @Operation(summary = "Available chemicals in a branch filtered by expiry date range and minimum volume",
-            description = "Returns chemicals in the given branch that are AVAILABLE, " +
-                    "have expiry date within [expiryFrom, expiryTo], and total stock >= minVolume. " +
-                    "Sorted by earliest expiry. Includes per-registration detail.")
+               description = "Returns chemicals in the given branch that are AVAILABLE, " +
+                             "have expiry date within [expiryFrom, expiryTo], and total stock >= minVolume. " +
+                             "Sorted by earliest expiry. Includes per-registration detail.")
     public ResponseEntity<BranchChemicalAvailability> getAvailableInBranch(
             @PathVariable Long branchId,
             @RequestParam(defaultValue = "0") BigDecimal minVolume,
@@ -178,8 +179,8 @@ public class ChemicalController {
     @GetMapping("/availability/branch/{branchId}/expiring-soon")
     @PreAuthorize("hasAuthority('CHEMICAL_STOCK_VIEW')")
     @Operation(summary = "Available chemicals in a branch expiring within N days with minimum volume",
-            description = "Convenience endpoint: expiry window is [today, today + daysAhead]. " +
-                    "Only returns chemicals with stock >= minVolume.")
+               description = "Convenience endpoint: expiry window is [today, today + daysAhead]. " +
+                             "Only returns chemicals with stock >= minVolume.")
     public ResponseEntity<BranchChemicalAvailability> getAvailableExpiringSoon(
             @PathVariable Long branchId,
             @RequestParam(defaultValue = "0") BigDecimal minVolume,
@@ -194,9 +195,9 @@ public class ChemicalController {
     @GetMapping("/lists/due-for-delivery")
     @PreAuthorize("hasAuthority('ORDER_REQUEST_VIEW')")
     @Operation(summary = "Chemicals due for delivery — ORDER_PLACED chemical order requests",
-            description = "All CHEMICAL order requests in ORDER_PLACED status with expected delivery " +
-                    "within the next daysAhead days (default 30). " +
-                    "Use /order-requests/due-for-delivery for combined chemical+instrument view.")
+               description = "All CHEMICAL order requests in ORDER_PLACED status with expected delivery " +
+                             "within the next daysAhead days (default 30). " +
+                             "Use /order-requests/due-for-delivery for combined chemical+instrument view.")
     public ResponseEntity<List<OrderRequest>> getChemicalsDueForDelivery(
             @RequestParam(defaultValue = "30") int daysAhead,
             @AuthenticationPrincipal LimsUserDetails u) {
@@ -210,11 +211,11 @@ public class ChemicalController {
     @GetMapping("/lists/available-stock")
     @PreAuthorize("hasAuthority('CHEMICAL_STOCK_VIEW')")
     @Operation(summary = "Full available stock list — all AVAILABLE chemicals with current quantity and FEFO",
-            description = "Returns all chemicals with status=AVAILABLE across the tenant. " +
-                    "Results include expiry date for FEFO-based selection. " +
-                    "Use ?branchId= to filter by specific branch.")
+               description = "Returns all chemicals with status=AVAILABLE across the tenant. " +
+                             "Results include expiry date for FEFO-based selection. " +
+                             "Scoped by X-Branch-Id header.")
     public ResponseEntity<BranchChemicalAvailability> getAvailableStockList(
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(
                 chemicalService.getAvailableInBranch(

@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "document_master",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"tenant_id", "name", "version"}))
+    uniqueConstraints = @UniqueConstraint(columnNames = {"tenant_id", "name", "version"}))
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class DocumentMaster {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)

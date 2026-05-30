@@ -1,0 +1,115 @@
+server:
+  port: ${PORT:8080}
+  servlet:
+    context-path: /api/v1
+
+spring:
+  application:
+    name: lims
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+  jackson:
+    serialization:
+      fail-on-empty-beans: false
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql:///${DB_NAME:lims_db}?cloudSqlInstance=${INSTANCE_CONNECTION_NAME:surya-welcome-demo-2026:asia-south1:lims-postgres}&socketFactory=com.google.cloud.sql.postgres.SocketFactory}
+    username: ${DB_USERNAME:lims_user}
+    password: ${DB_PASSWORD:Lims@123}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:5}
+      minimum-idle: 1
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      keepalive-time: 300000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+    show-sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+gcp:
+  project-id: ${GCP_PROJECT_ID:surya-welcome-demo-2026}
+  storage:
+    bucket: ${GCS_BUCKET:lims-documents}
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,https://lims-ui-452789239320.asia-south1.run.app}
+management:
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health,info,metrics,prometheus,loggers,threaddump,heapdump
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+    loggers:
+      enabled: true
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      environment: ${APP_ENV:cloud}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        "[http.server.requests]": [0.5, 0.75, 0.90, 0.95, 0.99]
+      slo:
+        "[http.server.requests]":
+          - 50ms
+          - 100ms
+          - 200ms
+          - 500ms
+          - 1s
+          - 2s
+  health:
+    db:
+      enabled: true
+    diskspace:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  tracing:
+    enabled: true
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${JAEGER_OTLP_ENDPOINT:http://localhost:4317}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:3cfa76ef14937c1c0ea519f8fc057a80fcd04a7420f8e8bcd0a7567c272e007b}
+    expiration-ms: ${JWT_EXPIRY_MS:86400000}
+    refresh-expiration-ms: ${JWT_REFRESH_EXPIRY_MS:604800000}
+  security:
+    max-failed-attempts: 3
+    lock-duration-months: 1
+
+logging:
+  level:
+    com.sivayahealth.lims: DEBUG
+    org.springframework.security: INFO
+    io.opentelemetry: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [traceId=%X{traceId:-none},spanId=%X{spanId:-none}] %logger{36} - %msg%n"

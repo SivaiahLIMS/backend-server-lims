@@ -51,7 +51,7 @@ public class ChemicalService {
 
     @Transactional
     public ChemicalRegistration registerChemical(Long tenantId, Long branchId,
-                                                 ChemicalRegistration registration, Long userId) {
+                                                  ChemicalRegistration registration, Long userId) {
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> LimsException.notFound("Tenant not found"));
         Branch branch = branchRepository.findById(branchId)
@@ -84,8 +84,8 @@ public class ChemicalService {
 
     @Transactional
     public ChemicalIssuance issueChemical(Long tenantId, Long branchId, Long registrationId,
-                                          BigDecimal quantity, int containers,
-                                          Long issuedToId, Long issuedById, String purpose) {
+                                           BigDecimal quantity, int containers,
+                                           Long issuedToId, Long issuedById, String purpose) {
         ChemicalStock stock = stockRepository.findByRegistrationId(registrationId)
                 .orElseThrow(() -> LimsException.notFound("Stock not found"));
 
@@ -123,9 +123,9 @@ public class ChemicalService {
 
     @Transactional
     public ChemicalDestruction destroyChemical(Long tenantId, Long registrationId,
-                                               BigDecimal quantity, int containers,
-                                               Long destroyedById, Long witnessedById,
-                                               String method, String remarks) {
+                                                BigDecimal quantity, int containers,
+                                                Long destroyedById, Long witnessedById,
+                                                String method, String remarks) {
         ChemicalStock stock = stockRepository.findByRegistrationId(registrationId)
                 .orElseThrow(() -> LimsException.notFound("Stock not found"));
 
@@ -228,9 +228,9 @@ public class ChemicalService {
      */
     @Transactional(readOnly = true)
     public BranchChemicalAvailability getAvailableInBranch(Long tenantId, Long branchId,
-                                                           BigDecimal minVolume,
-                                                           LocalDate expiryFrom,
-                                                           LocalDate expiryTo) {
+                                                            BigDecimal minVolume,
+                                                            LocalDate expiryFrom,
+                                                            LocalDate expiryTo) {
         Branch branch = branchRepository.findById(branchId)
                 .orElseThrow(() -> LimsException.notFound("Branch not found"));
 
@@ -287,8 +287,8 @@ public class ChemicalService {
      */
     @Transactional(readOnly = true)
     public BranchChemicalAvailability getAvailableInBranchExpiringSoon(Long tenantId, Long branchId,
-                                                                       BigDecimal minVolume,
-                                                                       int daysAhead) {
+                                                                        BigDecimal minVolume,
+                                                                        int daysAhead) {
         LocalDate today = LocalDate.now();
         return getAvailableInBranch(tenantId, branchId, minVolume, today, today.plusDays(daysAhead));
     }

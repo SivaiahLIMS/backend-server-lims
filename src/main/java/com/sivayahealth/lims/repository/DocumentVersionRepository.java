@@ -52,4 +52,10 @@ public interface DocumentVersionRepository extends JpaRepository<DocumentVersion
         ORDER BY v.document.name ASC
         """)
     List<DocumentVersion> findPublishedForTenant(@Param("tenantId") Long tenantId);
+
+    /** Versions pending or in-progress parse */
+    List<DocumentVersion> findByDocument_Tenant_IdAndParseStatus(Long tenantId, String parseStatus);
+
+    @Query("SELECT MAX(v.versionNo) FROM DocumentVersion v WHERE v.document.id = :documentId")
+    Optional<Integer> findMaxVersionNo(@Param("documentId") Long documentId);
 }

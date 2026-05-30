@@ -1,7 +1,6 @@
 package com.sivayahealth.lims.controller;
 
-import com.sivayahealth.lims.dto.user.CreateUserRequest;
-import com.sivayahealth.lims.dto.user.UserResponse;
+import com.sivayahealth.lims.dto.user.*;
 import com.sivayahealth.lims.entity.UserSkill;
 import com.sivayahealth.lims.entity.UserWorkload;
 import com.sivayahealth.lims.repository.UserSkillRepository;
@@ -116,5 +115,40 @@ public class UserController {
     public ResponseEntity<Optional<UserWorkload>> getUserWorkload(@PathVariable Long userId,
                                                                    @AuthenticationPrincipal LimsUserDetails userDetails) {
         return ResponseEntity.ok(userWorkloadRepository.findByTenantIdAndUser_Id(userDetails.getTenantId(), userId));
+    }
+
+    // ── Role & Permission Reports ────────────────────────────────────────────
+
+    @GetMapping("/reports/by-role")
+    @PreAuthorize("hasAuthority('USER_VIEW')")
+    @Operation(summary = "List all roles with their assigned users for the tenant")
+    public ResponseEntity<List<RoleUserSummary>> getUsersByRole(
+            @AuthenticationPrincipal LimsUserDetails userDetails) {
+        return ResponseEntity.ok(userService.getUsersByRole(userDetails.getTenantId()));
+    }
+
+    @GetMapping("/reports/by-role/{roleId}")
+    @PreAuthorize("hasAuthority('USER_VIEW')")
+    @Operation(summary = "List users assigned to a specific role in the tenant")
+    public ResponseEntity<RoleUserSummary> getUsersByRoleId(
+            @PathVariable Long roleId,
+            @AuthenticationPrincipal LimsUserDetails userDetails) {
+        return ResponseEntity.ok(userService.getUsersByRoleId(userDetails.getTenantId(), roleId));
+    }
+
+    @GetMapping("/reports/by-permission")
+    @PreAuthorize("hasAuthority('USER_VIEW')")
+    @Operation(summary = "List all permissions with users who hold each permission (via any role)")
+    public ResponseEntity<List<PermissionUserSummary>> getUsersByPermission(
+            @AuthenticationPrincipal LimsUserDetails userDetails) {
+        return ResponseEntity.ok(userService.getUsersByPermission(userDetails.getTenantId()));
+    }
+
+    @GetMapping("/reports/full")
+    @PreAuthorize("hasAuthority('USER_VIEW')")
+    @Operation(summary = "Full report: each user with all their roles and permissions in the tenant")
+    public ResponseEntity<List<UserRolePermissionReport>> getFullReport(
+            @AuthenticationPrincipal LimsUserDetails userDetails) {
+        return ResponseEntity.ok(userService.getUserRolePermissionReport(userDetails.getTenantId()));
     }
 }

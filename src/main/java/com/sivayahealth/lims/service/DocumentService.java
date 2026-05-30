@@ -55,9 +55,9 @@ public class DocumentService {
                 .mapToInt(DocumentVersion::getVersionNo)
                 .max().orElse(0) + 1;
 
-        DocxParserService.ParsedDocxResult parsed;
+        DocxParserService.LegacyParseResult parsed;
         try (InputStream in = file.getInputStream()) {
-            parsed = docxParserService.parse(in);
+            parsed = docxParserService.parseLegacy(in);
         } catch (IOException e) {
             throw LimsException.badRequest("Failed to read uploaded file: " + e.getMessage());
         }
@@ -76,11 +76,6 @@ public class DocumentService {
         String fileUrl = null;
         Long fileSizeBytes = null;
         try {
-
-            if (file == null || file.isEmpty()) {
-                throw new IllegalArgumentException("Uploaded file is empty");
-            }
-
             byte[] fileBytes = file.getBytes();
             String safeFilename = file.getOriginalFilename().replaceAll("[^a-zA-Z0-9._-]", "_");
             String gcsPath = tenantId + "/" + documentId + "/v" + nextVersion + "/" + safeFilename;

@@ -10,11 +10,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/dashboard")
 @RequiredArgsConstructor
+@SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Dashboard", description = "Role-based dashboard data and widgets")
 public class DashboardController {
 
@@ -22,20 +24,21 @@ public class DashboardController {
 
     @GetMapping("/widgets")
     @PreAuthorize("hasAnyAuthority('WIDGET_CRITICAL_ALERTS','WIDGET_WORKLOAD','WIDGET_LOW_STOCK','WIDGET_CALIBRATION_DUE','WIDGET_OOS','WIDGET_EXECUTIVE_KPI')")
-    @Operation(summary = "Get dashboard widgets data")
+    @Operation(summary = "Get dashboard widgets data",
+               description = "Scoped by X-Branch-Id header.")
     public ResponseEntity<Map<String, Object>> getWidgets(
-            @RequestHeader(value = "X-Branch-Id", required = false) Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
-        Long bId = branchId != null ? branchId : 0L;
-        return ResponseEntity.ok(dashboardService.getWidgets(u.getTenantId(), bId));
+        return ResponseEntity.ok(dashboardService.getWidgets(u.getTenantId(), branchId));
     }
 
     @GetMapping("/summary")
-    @Operation(summary = "Get full dashboard summary")
+    @PreAuthorize("hasAnyAuthority('WIDGET_CRITICAL_ALERTS','WIDGET_WORKLOAD','WIDGET_LOW_STOCK','WIDGET_CALIBRATION_DUE','WIDGET_OOS','WIDGET_EXECUTIVE_KPI')")
+    @Operation(summary = "Get full dashboard summary",
+               description = "Scoped by X-Branch-Id header.")
     public ResponseEntity<Map<String, Object>> getSummary(
-            @RequestHeader(value = "X-Branch-Id", required = false) Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
-        Long bId = branchId != null ? branchId : 0L;
-        return ResponseEntity.ok(dashboardService.getDashboardData(u.getTenantId(), bId));
+        return ResponseEntity.ok(dashboardService.getDashboardData(u.getTenantId(), branchId));
     }
 }

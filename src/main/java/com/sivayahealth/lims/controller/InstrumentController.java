@@ -14,6 +14,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
@@ -23,6 +24,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/instruments")
 @RequiredArgsConstructor
+@SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Instrument Module", description = "Instrument master, calibration, maintenance, downtime")
 public class InstrumentController {
 
@@ -45,25 +47,28 @@ public class InstrumentController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('INSTRUMENT_VIEW')")
-    @Operation(summary = "List instruments for branch")
+    @Operation(summary = "List instruments for branch",
+               description = "Requires: INSTRUMENT_VIEW. Scoped by X-Branch-Id header.")
     public ResponseEntity<List<InstrumentMaster>> getInstruments(
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(instrumentService.getInstrumentsByBranch(u.getTenantId(), branchId));
     }
 
     @PostMapping("/{instrumentId}/calibrations")
     @PreAuthorize("hasAuthority('CALIBRATION_ALLOCATE')")
-    @Operation(summary = "Create a calibration event for instrument")
+    @Operation(summary = "Create a calibration event for instrument",
+               description = "Requires: CALIBRATION_ALLOCATE. Scoped by X-Branch-Id header.")
     public ResponseEntity<InstrumentCalibration> createCalibration(
             @PathVariable Long instrumentId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @RequestBody Map<String, Long> body,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 instrumentService.createCalibration(
                         instrumentId,
                         u.getTenantId(),
-                        body.get("branchId"),
+                        branchId,
                         body.get("analystId")
                 )
         );
@@ -130,9 +135,11 @@ public class InstrumentController {
     }
 
     @PostMapping("/{instrumentId}/reservations")
-    @Operation(summary = "Request an instrument reservation")
+    @Operation(summary = "Request an instrument reservation",
+               description = "Requires: INSTRUMENT_VIEW. Scoped by X-Branch-Id header.")
     public ResponseEntity<InstrumentReservation> createReservation(
             @PathVariable Long instrumentId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @RequestBody Map<String, Object> body,
             @AuthenticationPrincipal LimsUserDetails u) {
         InstrumentMaster instrument = instrumentMasterRepository.findById(instrumentId)
@@ -140,7 +147,7 @@ public class InstrumentController {
         AppUser requestedBy = u.getUser();
         InstrumentReservation reservation = InstrumentReservation.builder()
                 .tenantId(u.getTenantId())
-                .branchId(body.containsKey("branchId") ? Long.valueOf(body.get("branchId").toString()) : null)
+                .branchId(branchId)
                 .instrument(instrument)
                 .status("REQUESTED")
                 .requestedBy(requestedBy)
@@ -192,9 +199,9 @@ public class InstrumentController {
     @GetMapping("/lists/active")
     @PreAuthorize("hasAuthority('INSTRUMENT_VIEW')")
     @Operation(summary = "Active instruments list — status = AVAILABLE",
-            description = "Instruments currently usable in the branch.")
+               description = "Instruments currently usable in the branch.")
     public ResponseEntity<List<InstrumentMaster>> getActiveInstruments(
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(
                 instrumentMasterRepository.findByTenantIdAndBranchIdAndStatus(u.getTenantId(), branchId, "AVAILABLE"));
@@ -203,9 +210,9 @@ public class InstrumentController {
     @GetMapping("/lists/overdue-calibration")
     @PreAuthorize("hasAuthority('CALIBRATION_SCHEDULE_VIEW')")
     @Operation(summary = "Instruments overdue for calibration",
-            description = "Calibration due date is in the past and the calibration record is not yet completed/approved.")
+               description = "Calibration due date is in the past and the calibration record is not yet completed/approved.")
     public ResponseEntity<List<InstrumentCalibration>> getOverdueCalibrations(
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(
                 instrumentCalibrationRepository.findOverdueForCalibration(
@@ -215,9 +222,9 @@ public class InstrumentController {
     @GetMapping("/lists/ready-for-calibration")
     @PreAuthorize("hasAuthority('CALIBRATION_SCHEDULE_VIEW')")
     @Operation(summary = "Instruments ready for calibration",
-            description = "Instrument is AVAILABLE and calibration is SCHEDULED within the window (default next 7 days).")
+               description = "Instrument is AVAILABLE and calibration is SCHEDULED within the window (default next 7 days).")
     public ResponseEntity<List<InstrumentCalibration>> getReadyForCalibration(
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @RequestParam(defaultValue = "7") int windowDays,
             @AuthenticationPrincipal LimsUserDetails u) {
         LocalDate today = LocalDate.now();
@@ -229,9 +236,9 @@ public class InstrumentController {
     @GetMapping("/lists/pending-calibration-approval")
     @PreAuthorize("hasAuthority('CALIBRATION_REVIEW')")
     @Operation(summary = "Calibrations pending QA/QC approval",
-            description = "Calibration completed — waiting for reviewer/approver. Status = TEST_COMPLETED.")
+               description = "Calibration completed — waiting for reviewer/approver. Status = TEST_COMPLETED.")
     public ResponseEntity<List<InstrumentCalibration>> getPendingCalibrationApproval(
-            @RequestParam Long branchId,
+            @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(
                 instrumentCalibrationRepository.findByTenant_IdAndBranch_IdAndStatus(
@@ -241,8 +248,8 @@ public class InstrumentController {
     @GetMapping("/{instrumentId}/calibration-lifecycle")
     @PreAuthorize("hasAuthority('CALIBRATION_SCHEDULE_VIEW')")
     @Operation(summary = "Full calibration lifecycle for an instrument",
-            description = "All calibration records ordered chronologically: " +
-                    "CREATED → ASSIGNED → IN_PROGRESS → COMPLETED → TEST_COMPLETED → APPROVED → ARCHIVED.")
+               description = "All calibration records ordered chronologically: " +
+                             "CREATED → ASSIGNED → IN_PROGRESS → COMPLETED → TEST_COMPLETED → APPROVED → ARCHIVED.")
     public ResponseEntity<List<InstrumentCalibration>> getCalibrationLifecycle(
             @PathVariable Long instrumentId) {
         return ResponseEntity.ok(
@@ -252,8 +259,8 @@ public class InstrumentController {
     @GetMapping("/lists/due-for-delivery")
     @PreAuthorize("hasAuthority('ORDER_REQUEST_VIEW')")
     @Operation(summary = "Instruments due for delivery — ORDER_PLACED instrument order requests",
-            description = "All INSTRUMENT order requests in ORDER_PLACED status with expected delivery " +
-                    "within the next daysAhead days (default 30).")
+               description = "All INSTRUMENT order requests in ORDER_PLACED status with expected delivery " +
+                             "within the next daysAhead days (default 30).")
     public ResponseEntity<List<com.sivayahealth.lims.entity.OrderRequest>> getInstrumentsDueForDelivery(
             @RequestParam(defaultValue = "30") int daysAhead,
             @AuthenticationPrincipal LimsUserDetails u) {

@@ -86,4 +86,18 @@ public class DocumentVersion {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "retired_by")
     private AppUser retiredBy;
+
+    // ── Parse pipeline (added in V10) ─────────────────────
+    // PENDING | PROCESSING | PARSED | FAILED
+    @Column(name = "parse_status", length = 50)
+    private String parseStatus = "PENDING";
+
+    @Column(name = "parse_error", columnDefinition = "TEXT")
+    private String parseError;
+
+    @Column(name = "parsed_at")
+    private LocalDateTime parsedAt;
+
+    @Column(name = "mime_type", length = 100)
+    private String mimeType;
 }

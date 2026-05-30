@@ -13,9 +13,7 @@ public class AuditLog {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tenant_id")
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-
+    @JoinColumn(name = "tenant_id", nullable = false)
     private Tenant tenant;
 
     @ManyToOne(fetch = FetchType.LAZY)

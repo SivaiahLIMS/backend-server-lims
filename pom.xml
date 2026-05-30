@@ -177,6 +177,12 @@
             <version>1.21.0</version>
         </dependency>
 
+        <!-- Google Cloud Logging (Log4j2 appender for Cloud Logging) -->
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-logging-logback</artifactId>
+        </dependency>
+
     <!-- ZXing QR Code generation -->
     <dependency>
       <groupId>com.google.zxing</groupId>
