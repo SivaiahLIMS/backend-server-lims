@@ -26,6 +26,27 @@
   - All access scoped to authenticated users' tenant
 */
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Supabase compatibility: create the `authenticated` role and auth.uid() stub
+-- when running on plain PostgreSQL (e.g. local dev). These are no-ops on
+-- Supabase because the role and function already exist there.
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticated') THEN
+        CREATE ROLE authenticated;
+    END IF;
+END
+$$;
+
+CREATE SCHEMA IF NOT EXISTS auth;
+
+CREATE OR REPLACE FUNCTION auth.uid() RETURNS bigint AS $$
+    SELECT 0::bigint;
+$$ LANGUAGE sql STABLE;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+
 CREATE TABLE IF NOT EXISTS order_request (
                                              id                    BIGSERIAL PRIMARY KEY,
                                              tenant_id             BIGINT NOT NULL REFERENCES tenant(id),
