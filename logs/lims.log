@@ -42,3 +42,8 @@ Exposing 7 endpoints beneath base path '/actuator'
 Starting ProtocolHandler ["http-nio-8080"]
 Tomcat started on port 8080 (http) with context path '/api/v1'
 Started LimsApplication in 24.143 seconds (process running for 25.811)
+Commencing graceful shutdown. Waiting for active requests to complete
+Graceful shutdown complete
+Closing JPA EntityManagerFactory for persistence unit 'default'
+HikariPool-1 - Shutdown initiated...
+HikariPool-1 - Shutdown completed.
