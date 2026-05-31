@@ -178,10 +178,10 @@
         </dependency>
 
         <!-- Google Cloud Logging (Log4j2 appender for Cloud Logging) -->
-        <dependency>
-            <groupId>com.google.cloud</groupId>
-            <artifactId>google-cloud-logging-logback</artifactId>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>com.google.cloud</groupId>-->
+<!--            <artifactId>google-cloud-logging-logback</artifactId>-->
+<!--        </dependency>-->
 
     <!-- ZXing QR Code generation -->
     <dependency>
