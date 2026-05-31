@@ -1,5 +1,6 @@
 package com.sivayahealth.lims.exception;
 
+import com.sivayahealth.lims.dto.ApiErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,60 +12,57 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(LimsException.class)
-    public ResponseEntity<ErrorResponse> handleLimsException(LimsException ex) {
+    public ResponseEntity<ApiErrorResponse> handleLimsException(LimsException ex,
+            jakarta.servlet.http.HttpServletRequest request) {
         log.error("LIMS exception: {}", ex.getMessage());
         return ResponseEntity.status(ex.getStatus())
-                .body(new ErrorResponse(ex.getMessage(), ex.getStatus().value()));
+                .body(ApiErrorResponse.of(ex.getStatus().value(),
+                        ex.getStatus().getReasonPhrase(), ex.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ErrorResponse> handleBadCredentials(BadCredentialsException ex) {
+    public ResponseEntity<ApiErrorResponse> handleBadCredentials(BadCredentialsException ex,
+            jakarta.servlet.http.HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(new ErrorResponse("Invalid username or password", 401));
+                .body(ApiErrorResponse.of(401, "Unauthorized", "Invalid username or password", request.getRequestURI()));
     }
 
     @ExceptionHandler(LockedException.class)
-    public ResponseEntity<ErrorResponse> handleLocked(LockedException ex) {
+    public ResponseEntity<ApiErrorResponse> handleLocked(LockedException ex,
+            jakarta.servlet.http.HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.LOCKED)
-                .body(new ErrorResponse("Account is locked. Please contact administrator.", 423));
+                .body(ApiErrorResponse.of(423, "Locked", "Account is locked. Please contact administrator.", request.getRequestURI()));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+    public ResponseEntity<ApiErrorResponse> handleAccessDenied(AccessDeniedException ex,
+            jakarta.servlet.http.HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(new ErrorResponse("Access denied: insufficient permissions", 403));
+                .body(ApiErrorResponse.of(403, "Forbidden", "Access denied: insufficient permissions", request.getRequestURI()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
-        Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult().getAllErrors().forEach(error -> {
-            String fieldName = ((FieldError) error).getField();
-            errors.put(fieldName, error.getDefaultMessage());
-        });
+    public ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException ex,
+            jakarta.servlet.http.HttpServletRequest request) {
+        String details = ex.getBindingResult().getAllErrors().stream()
+                .map(e -> ((FieldError) e).getField() + ": " + e.getDefaultMessage())
+                .collect(Collectors.joining(", "));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse("Validation failed: " + errors, 400));
+                .body(ApiErrorResponse.of(400, "Bad Request", "Validation failed: " + details, request.getRequestURI()));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGeneral(Exception ex) {
+    public ResponseEntity<ApiErrorResponse> handleGeneral(Exception ex,
+            jakarta.servlet.http.HttpServletRequest request) {
         log.error("Unhandled exception", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ErrorResponse("An internal error occurred", 500));
-    }
-
-    public record ErrorResponse(String message, int status, LocalDateTime timestamp) {
-        public ErrorResponse(String message, int status) {
-            this(message, status, LocalDateTime.now());
-        }
+                .body(ApiErrorResponse.of(500, "Internal Server Error", "An internal error occurred", request.getRequestURI()));
     }
 }

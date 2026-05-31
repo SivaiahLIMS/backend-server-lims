@@ -4,6 +4,7 @@ import com.sivayahealth.lims.entity.AuditLog;
 import com.sivayahealth.lims.security.LimsUserDetails;
 import com.sivayahealth.lims.service.AuditService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/audit")
 @RequiredArgsConstructor
+@SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Audit Trail", description = "Audit log access for compliance")
 public class AuditController {
 

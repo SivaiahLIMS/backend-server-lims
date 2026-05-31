@@ -7,6 +7,7 @@ import com.sivayahealth.lims.repository.BranchRepository;
 import com.sivayahealth.lims.repository.TenantRepository;
 import com.sivayahealth.lims.security.LimsUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -20,6 +21,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/tenants")
 @RequiredArgsConstructor
+@SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Tenant & Branch", description = "Tenant and branch management")
 public class TenantController {
 

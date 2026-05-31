@@ -36,6 +36,7 @@ public class WorksheetDocumentService {
     private final WorksheetFieldValueRepository    fieldValueRepo;
     private final WorksheetTestCaseResultRepository resultRepo;
     private final AppUserRepository                userRepo;
+    private final WorksheetValidationService       validationService;
 
     private final ObjectMapper objectMapper;
 
@@ -207,7 +208,18 @@ public class WorksheetDocumentService {
         result.setComputedBy(analyst);
         result.setComputedAt(LocalDateTime.now());
 
-        return resultRepo.save(result);
+        WorksheetTestCaseResult saved = resultRepo.save(result);
+
+        // Validate the final computed result against the formula slot's OOS/OOT rule
+        DocumentFieldSlot formulaSlot = slots.stream()
+                .filter(s -> "FORMULA".equalsIgnoreCase(s.getFieldType()))
+                .findFirst().orElse(null);
+        if (formulaSlot != null && computed != null) {
+            validationService.validateComputedResult(
+                    worksheetId, formulaSlot.getSlotId(), computed, resultUnit, userId);
+        }
+
+        return saved;
     }
 
     // ── Result review ─────────────────────────────────────────────────────────

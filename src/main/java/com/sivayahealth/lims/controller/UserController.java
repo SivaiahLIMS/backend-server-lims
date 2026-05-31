@@ -8,6 +8,7 @@ import com.sivayahealth.lims.repository.UserWorkloadRepository;
 import com.sivayahealth.lims.security.LimsUserDetails;
 import com.sivayahealth.lims.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,12 +19,12 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @RestController
 @RequestMapping("/users")
 @RequiredArgsConstructor
+@SecurityRequirement(name = "bearerAuth")
 @Tag(name = "User Management", description = "User CRUD and role assignment")
 public class UserController {
 
@@ -57,12 +58,10 @@ public class UserController {
     @Operation(summary = "Assign a role to a user")
     public ResponseEntity<Void> assignRole(
             @PathVariable Long userId,
-            @RequestBody Map<String, Long> body,
+            @Valid @RequestBody AssignRoleRequest request,
             @AuthenticationPrincipal LimsUserDetails userDetails) {
-        userService.assignRole(userId,
-                body.getOrDefault("tenantId", userDetails.getTenantId()),
-                body.get("branchId"),
-                body.get("roleId"));
+        Long tenantId = request.getTenantId() != null ? request.getTenantId() : userDetails.getTenantId();
+        userService.assignRole(userId, tenantId, request.getBranchId(), request.getRoleId());
         return ResponseEntity.ok().build();
     }
 
@@ -88,9 +87,9 @@ public class UserController {
     @PreAuthorize("hasAuthority('USER_EDIT')")
     @Operation(summary = "Reset user password")
     public ResponseEntity<Void> resetPassword(@PathVariable Long userId,
-                                               @RequestBody Map<String, String> body,
+                                               @Valid @RequestBody ResetPasswordRequest request,
                                                @AuthenticationPrincipal LimsUserDetails userDetails) {
-        userService.resetPassword(userId, body.get("newPassword"), userDetails.getTenantId());
+        userService.resetPassword(userId, request.getNewPassword(), userDetails.getTenantId());
         return ResponseEntity.ok().build();
     }
 

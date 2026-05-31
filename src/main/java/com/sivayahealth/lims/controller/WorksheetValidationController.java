@@ -1,5 +1,6 @@
 package com.sivayahealth.lims.controller;
 
+import com.sivayahealth.lims.dto.ApiErrorResponse;
 import com.sivayahealth.lims.dto.validation.UpsertValidationRuleRequest;
 import com.sivayahealth.lims.dto.validation.ValidateFieldRequest;
 import com.sivayahealth.lims.dto.validation.ValidateFieldResponse;
@@ -8,6 +9,8 @@ import com.sivayahealth.lims.entity.WorksheetValidationEvent;
 import com.sivayahealth.lims.security.LimsUserDetails;
 import com.sivayahealth.lims.service.WorksheetValidationService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -42,9 +45,12 @@ public class WorksheetValidationController {
     )
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Active rule returned"),
-        @ApiResponse(responseCode = "404", description = "No active rule for this field"),
-        @ApiResponse(responseCode = "401", description = "Unauthorized"),
-        @ApiResponse(responseCode = "403", description = "Forbidden")
+        @ApiResponse(responseCode = "404", description = "No active rule for this field",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     })
     public ResponseEntity<WorksheetFieldValidationRule> getRuleForTemplateField(
             @PathVariable Long templateId,
@@ -62,14 +68,18 @@ public class WorksheetValidationController {
         summary = "Configure the OOS/OOT rule for a template field",
         description = "Requires: VALIDATION_RULE_MANAGE. " +
                       "Any existing active rule for the field is deactivated and replaced. " +
-                      "OOT limits must be inside OOS limits when both are specified. " +
+                      "ruleType: RANGE | MIN_ONLY | MAX_ONLY | TARGET_VARIANCE | FORMULA_BASED. " +
+                      "OOT limits must be inside OOS limits for RANGE rules. " +
                       "fieldId is the slot_id from document_field_slot."
     )
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Rule saved"),
-        @ApiResponse(responseCode = "400", description = "Invalid limits (e.g. OOT outside OOS)"),
-        @ApiResponse(responseCode = "404", description = "Field slot not found"),
-        @ApiResponse(responseCode = "403", description = "Forbidden")
+        @ApiResponse(responseCode = "400", description = "Invalid limits or ruleType",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Field slot not found",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     })
     public ResponseEntity<WorksheetFieldValidationRule> upsertRuleForTemplateField(
             @PathVariable Long templateId,
@@ -93,8 +103,10 @@ public class WorksheetValidationController {
     )
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Active rule returned"),
-        @ApiResponse(responseCode = "404", description = "No active rule or field not found"),
-        @ApiResponse(responseCode = "401", description = "Unauthorized")
+        @ApiResponse(responseCode = "404", description = "No active rule or field not found",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     })
     public ResponseEntity<WorksheetFieldValidationRule> getRuleForWorksheetField(
             @PathVariable Long worksheetId,
@@ -117,13 +129,19 @@ public class WorksheetValidationController {
                       "Returns status PASS | OOT | OOS | NO_RULE. " +
                       "OOS → severity HIGH; OOT → MEDIUM; PASS → LOW; NO_RULE → NONE. " +
                       "When requiresComment=true the UI must show a mandatory comment field before saving. " +
+                      "When requiresReview=true the OOT result requires supervisor review. " +
+                      "When requiresInvestigation=true an OOS investigation must be opened. " +
+                      "When requiresCapa=true a CAPA record must be opened. " +
                       "Each validation call is recorded in the worksheet validation event log."
     )
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Validation result"),
-        @ApiResponse(responseCode = "400", description = "Slot does not belong to this worksheet's template"),
-        @ApiResponse(responseCode = "404", description = "Worksheet or field slot not found"),
-        @ApiResponse(responseCode = "403", description = "Forbidden")
+        @ApiResponse(responseCode = "400", description = "Slot does not belong to this worksheet's template",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Worksheet or field slot not found",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     })
     public ResponseEntity<ValidateFieldResponse> validateField(
             @PathVariable Long worksheetId,
@@ -135,24 +153,50 @@ public class WorksheetValidationController {
         );
     }
 
-    // ── Validation event log ──────────────────────────────────────────────────
+    // ── Validation event history ──────────────────────────────────────────────
 
     @GetMapping("/worksheets/{worksheetId}/validation-events")
     @PreAuthorize("hasAuthority('VALIDATION_RULE_VIEW')")
     @Operation(
         summary = "Get all OOS/OOT validation events for a worksheet",
         description = "Requires: VALIDATION_RULE_VIEW. " +
-                      "Returns all validation calls made on any field of this worksheet, " +
-                      "ordered most-recent first. Useful for review, audit trail, and QA sign-off."
+                      "Returns all validation calls (on-blur and post-compute) ordered most-recent first. " +
+                      "Includes both FIELD_BLUR and COMPUTED_RESULT sources."
     )
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Event list returned"),
-        @ApiResponse(responseCode = "404", description = "Worksheet not found"),
-        @ApiResponse(responseCode = "401", description = "Unauthorized"),
-        @ApiResponse(responseCode = "403", description = "Forbidden")
+        @ApiResponse(responseCode = "404", description = "Worksheet not found",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     })
     public ResponseEntity<List<WorksheetValidationEvent>> getValidationEvents(
             @PathVariable Long worksheetId) {
         return ResponseEntity.ok(validationService.getValidationEvents(worksheetId));
+    }
+
+    @GetMapping("/worksheets/{worksheetId}/fields/{fieldId}/validation-events")
+    @PreAuthorize("hasAuthority('VALIDATION_RULE_VIEW')")
+    @Operation(
+        summary = "Get OOS/OOT validation event history for a specific field in a worksheet",
+        description = "Requires: VALIDATION_RULE_VIEW. " +
+                      "fieldId is the slot_id. " +
+                      "Returns all validation calls for this field, ordered most-recent first."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Event list returned"),
+        @ApiResponse(responseCode = "404", description = "Worksheet or field not found",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    })
+    public ResponseEntity<List<WorksheetValidationEvent>> getValidationEventsForField(
+            @PathVariable Long worksheetId,
+            @PathVariable Long fieldId) {
+        return ResponseEntity.ok(validationService.getValidationEventsForField(worksheetId, fieldId));
     }
 }
