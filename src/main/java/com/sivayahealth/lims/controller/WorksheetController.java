@@ -19,8 +19,10 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/worksheets")
@@ -362,11 +364,20 @@ public class WorksheetController {
     public ResponseEntity<WorksheetExecutionData> addExecutionData(
             @PathVariable Long worksheetId,
             @RequestHeader("X-Branch-Id") Long branchId,
-            @RequestBody Map<String, Object> body,
+            @RequestBody AddExecutionDataRequest body,
             @AuthenticationPrincipal LimsUserDetails u) {
+        Map<String, Object> fields = new HashMap<>();
+        if (body.getFieldId()      != null) fields.put("fieldId",      body.getFieldId());
+        if (body.getFieldName()    != null) fields.put("fieldName",    body.getFieldName());
+        if (body.getValue()        != null) fields.put("value",        body.getValue().toPlainString());
+        if (body.getUnit()         != null) fields.put("unit",         body.getUnit());
+        if (body.getChemicalId()   != null) fields.put("chemicalId",   body.getChemicalId());
+        if (body.getInstrumentId() != null) fields.put("instrumentId", body.getInstrumentId());
+        if (body.getComment()      != null) fields.put("comment",      body.getComment());
+        if (body.getReason()       != null) fields.put("reason",       body.getReason());
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 worksheetService.saveExecutionData(u.getTenantId(), branchId, worksheetId,
-                        u.getUser().getId(), body));
+                        u.getUser().getId(), fields));
     }
 
     @PutMapping("/{worksheetId}/execution-data")
@@ -380,10 +391,22 @@ public class WorksheetController {
     public ResponseEntity<Void> replaceExecutionData(
             @PathVariable Long worksheetId,
             @RequestHeader("X-Branch-Id") Long branchId,
-            @RequestBody List<Map<String, Object>> rows,
+            @RequestBody List<AddExecutionDataRequest> rows,
             @AuthenticationPrincipal LimsUserDetails u) {
+        List<Map<String, Object>> rowMaps = rows.stream().map(r -> {
+            Map<String, Object> m = new HashMap<>();
+            if (r.getFieldId()      != null) m.put("fieldId",      r.getFieldId());
+            if (r.getFieldName()    != null) m.put("fieldName",    r.getFieldName());
+            if (r.getValue()        != null) m.put("value",        r.getValue().toPlainString());
+            if (r.getUnit()         != null) m.put("unit",         r.getUnit());
+            if (r.getChemicalId()   != null) m.put("chemicalId",   r.getChemicalId());
+            if (r.getInstrumentId() != null) m.put("instrumentId", r.getInstrumentId());
+            if (r.getComment()      != null) m.put("comment",      r.getComment());
+            if (r.getReason()       != null) m.put("reason",       r.getReason());
+            return m;
+        }).collect(Collectors.toList());
         worksheetService.replaceExecutionData(u.getTenantId(), branchId, worksheetId,
-                u.getUser().getId(), rows);
+                u.getUser().getId(), rowMaps);
         return ResponseEntity.noContent().build();
     }
 

@@ -1,0 +1,370 @@
+
+⭐ Updated LIMS Module List (Including All Missing Operational Lists)
+
+A. Core Laboratory Modules
+
+• Document & Template Management
+• Worksheet Execution
+• OOS_OOT_Management
+
+
+---
+
+⭐ B. Chemical & Inventory Modules
+
+• Chemical_Master
+• Container_Management
+• FEFO_Reservations
+• Chemical_Consumption
+
+
+NEW (Your Missing Items)
+
+• Available_Stock_List
+Shows all chemicals + containers with current quantity, FEFO, expiry.
+• Chemicals_Due_for_Delivery
+Shows chemicals expected from suppliers (PO‑linked or manual).
+
+
+---
+
+⭐ C. Storage & Logistics Modules
+
+• Storage_Location_Management
+• Container_Placement_Movement
+• Storage_Violations
+
+
+---
+
+⭐ D. Instrument & Calibration Modules
+
+• Instrument_Master
+• Instrument_Reservation
+• Calibration_Management
+• Calibration_Limits
+
+
+NEW (Your Missing Items)
+
+• Active_Instruments_List
+Instruments currently usable (status = AVAILABLE).
+• Instruments_Due_for_Delivery
+Instruments expected from vendor or service provider.
+• Instruments_Overdue_for_Calibration
+Calibration due date < today.
+• Instruments_Ready_for_Calibration
+Instruments idle + calibration window open.
+• Instruments_Pending_Calibration_Approval
+Calibration completed → waiting for QA/QC approval.
+• Calibration_Lifecycle
+Full flow:
+CREATED → ASSIGNED → IN_PROGRESS → COMPLETED → REVIEW_PENDING → APPROVED → ARCHIVED.
+
+
+---
+
+⭐ E. Document Review & QC Modules
+
+• Document_Review_List
+All documents in UNDER_REVIEW state.
+• Documents_Assigned_to_QC
+QC reviewer’s personal queue.
+• Documents_Approved_by_QC_for_Testing
+Published templates ready for worksheet execution.
+
+
+---
+
+⭐ F. Test Result Review Modules
+
+• Test_Results_Review
+QC/QA review of test results before CoA.
+• Test_Results_Pending_Approval
+All worksheets in SUBMITTED state.
+• Test_Results_Rejected
+Worksheets requiring rework.
+
+
+---
+
+⭐ G. Barcode, ELN, Training, Tasks, Notifications
+
+• Barcode_Scanning
+• ELN
+• Training_Competency
+• Task_Engine
+• Notification_Engine
+
+
+---
+
+⭐ H. Audit & Compliance
+
+• Audit_Trail
+• Field_Level_Audit
+• Workflow_Audit
+
+
+---
+
+⭐ I. Analytics & Predictive Intelligence
+
+• Chemical_Analytics
+• Instrument_Analytics
+• Storage_Analytics
+• OOS_OOT_Analytics
+• Predictive_Alerts
+
+
+---
+
+⭐ J. Platform Modules
+
+• User_Role_Management
+• Multi_Tenant_Management
+• System_Configuration
+
+• New chemicals
+• New instruments
+• Re‑ordering existing stock
+• Tracking deliveries
+• Approvals
+• Linking to suppliers
+• Linking to storage
+• Linking to inventory
+
+
+Below is the complete design for the Order Request Workflow, including UI screens, fields, HTML elements, backend fields, and lifecycle.
+
+I’m giving you the enterprise‑grade version used in real LIMS systems.
+
+---
+
+⭐ Order Request Module (Final Design)
+
+This becomes a new module:
+
+Order_Request_Management
+
+---
+
+⭐ 1. Order Request Lifecycle
+
+DRAFT → SUBMITTED → APPROVAL_PENDING → APPROVED → ORDER_PLACED → RECEIVED → CLOSED
+
+
+---
+
+⭐ 2. UI Screens for Order Requests
+
+2.1 Order Request List
+
+Shows all requests.
+
+• Search → <input type="text">
+• Filters → <select>
+• Status → <select>
+• Table → <table>
+
+
+---
+
+2.2 Create New Order Request
+
+User chooses:
+
+• Chemical OR Instrument
+
+
+HTML Elements
+
+Label	Element	Notes	
+Request Type	<select>	Chemical / Instrument	
+Chemical Name	<select>	Only if chemical	
+Instrument Name	<select>	Only if instrument	
+Quantity	<input type="number">	Required	
+UOM	<select>	mg / g / mL / L / unit	
+Required By Date	<input type="date">	Optional	
+Reason for Request	<textarea>	Required	
+Supplier	<select>	Optional	
+Attachments	<input type="file">	Optional	
+Submit Button	<button>		
+
+
+---
+
+2.3 Order Request Details Screen
+
+Shows:
+
+• Request info
+• Status
+• Approval history
+• Delivery tracking
+
+
+HTML Elements
+
+Label	Element	
+Request ID	<span>	
+Request Type	<span>	
+Chemical/Instrument	<span>	
+Quantity	<span>	
+UOM	<span>	
+Status	<span>	
+Timeline	<div>	
+Comments	<textarea>	
+Approve / Reject	<button>	
+
+
+---
+
+2.4 Approve Order Request
+
+Approver sees:
+
+• Request details
+• Reason
+• Supplier
+• Expected delivery
+
+
+HTML Elements
+
+Label	Element	
+Approver Comments	<textarea>	
+Approve Button	<button>	
+Reject Button	<button>	
+
+
+---
+
+2.5 Order Placement Screen
+
+Storekeeper or procurement team enters:
+
+Label	Element	
+PO Number	<input type="text">	
+Supplier	<select>	
+Expected Delivery Date	<input type="date">	
+Notes	<textarea>	
+Mark as Ordered	<button>	
+
+
+---
+
+2.6 Delivery Tracking Screen
+
+When items arrive:
+
+Label	Element	
+Delivery Date	<input type="date">	
+Delivered Quantity	<input type="number">	
+Delivery Notes	<textarea>	
+Attach Delivery Slip	<input type="file">	
+Mark as Received	<button>	
+
+
+---
+
+2.7 Auto‑Create Container (for chemicals)
+
+After receiving:
+
+• Container Code → <input type="text">
+• Quantity → <input type="number">
+• UOM → <select>
+• Expiry Date → <input type="date">
+• Storage Location → <select>
+
+
+---
+
+⭐ 3. Backend Tables Required
+
+order_request
+
+• id
+• request_type (CHEMICAL / INSTRUMENT)
+• chemical_id
+• instrument_id
+• quantity
+• uom
+• reason
+• status
+• requested_by
+• submitted_at
+• approved_by
+• approved_at
+• supplier_id
+• expected_delivery_date
+• po_number
+• delivered_at
+• delivery_notes
+
+
+order_request_history
+
+• id
+• order_request_id
+• old_status
+• new_status
+• changed_by
+• changed_at
+• comment
+
+
+---
+
+⭐ 4. Additional Lists You Mentioned (Now Included)
+
+These become dashboard lists:
+
+1) Available_Stock_List
+
+All chemicals with current quantity.
+
+2) Items_Due_for_Delivery
+
+Chemicals + instruments expected soon.
+
+3) Active_Instruments_List
+
+Status = AVAILABLE.
+
+4) Instruments_Overdue_for_Calibration
+
+Calibration due < today.
+
+5) Instruments_Ready_for_Calibration
+
+Idle + calibration window open.
+
+6) Instruments_Pending_Calibration_Approval
+
+Calibration completed → waiting for QA/QC.
+
+7) Calibration_Lifecycle
+
+Full calibration workflow.
+
+8) Documents_Under_Review
+
+Document versions in UNDER_REVIEW.
+
+9) Documents_Assigned_to_QC
+
+QC reviewer’s queue.
+
+10) Documents_Approved_by_QC
+
+Templates ready for testing.
+
+11) Test_Results_Review
+
+Worksheets pending approval.
+
+---
+
+⭐ 5. Order Request Module Summary
