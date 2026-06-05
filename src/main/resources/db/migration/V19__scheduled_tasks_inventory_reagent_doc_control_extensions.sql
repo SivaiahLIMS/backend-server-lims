@@ -211,7 +211,7 @@ END $$;
 -- ============================================================
 -- 7. New permissions
 -- ============================================================
-INSERT INTO permission (name, description) VALUES
+INSERT INTO permission (code, description) VALUES
     ('TASK_CREATE', 'Create scheduled tasks'),
     ('TASK_VIEW', 'View scheduled tasks'),
     ('TASK_EDIT', 'Update scheduled task status'),

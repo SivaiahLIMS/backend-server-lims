@@ -150,7 +150,7 @@ END $$;
 
 -- ── Permissions seed for new modules ─────────────────────────────────────────
 
-INSERT INTO permission (name, description) VALUES
+INSERT INTO permission (code, description) VALUES
     ('STABILITY_VIEW',     'View stability studies and results'),
     ('STABILITY_CREATE',   'Create new stability studies'),
     ('STABILITY_MANAGE',   'Activate, complete, or discontinue stability studies and manage timepoints/results')
