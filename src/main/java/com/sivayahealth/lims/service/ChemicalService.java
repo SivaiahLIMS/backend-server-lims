@@ -26,6 +26,8 @@ public class ChemicalService {
     private final ChemicalStockRepository stockRepository;
     private final ChemicalIssuanceRepository issuanceRepository;
     private final ChemicalDestructionRepository destructionRepository;
+    private final ChemicalContainerRepository containerRepository;
+    private final ReagentPreparationRepository reagentPreparationRepository;
     private final TenantRepository tenantRepository;
     private final BranchRepository branchRepository;
     private final AppUserRepository userRepository;
@@ -372,5 +374,146 @@ public class ChemicalService {
                 reg.getRegNo(),
                 expiryStr
         );
+    }
+
+    // ── Container Lifecycle ─────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public List<ChemicalContainer> getContainers(Long tenantId, Long branchId, String status) {
+        if (status != null) {
+            return containerRepository.findByTenantIdAndBranchIdAndStatus(tenantId, branchId, status);
+        }
+        return containerRepository.findByTenantIdAndBranchId(tenantId, branchId);
+    }
+
+    @Transactional(readOnly = true)
+    public ChemicalContainer getContainerByBarcode(Long tenantId, String barcode) {
+        return containerRepository.findByTenantIdAndBarcodeValue(tenantId, barcode)
+                .orElseThrow(() -> LimsException.notFound("Container not found for barcode: " + barcode));
+    }
+
+    @Transactional
+    public ChemicalContainer openContainer(Long containerId, Long userId) {
+        ChemicalContainer container = containerRepository.findById(containerId)
+                .orElseThrow(() -> LimsException.notFound("Container not found"));
+        if (!"AVAILABLE".equals(container.getStatus())) {
+            throw LimsException.badRequest("Container is not AVAILABLE");
+        }
+        container.setStatus("IN_USE");
+        ChemicalContainer saved = containerRepository.save(container);
+        auditService.log(container.getTenantId(), userId, "ChemicalContainer", containerId, "OPEN", "AVAILABLE", "IN_USE");
+        return saved;
+    }
+
+    @Transactional
+    public ChemicalContainer consumeFromContainer(Long containerId, BigDecimal amountUsed, Long userId) {
+        ChemicalContainer container = containerRepository.findById(containerId)
+                .orElseThrow(() -> LimsException.notFound("Container not found"));
+        if (container.getQuantity().compareTo(amountUsed) < 0) {
+            throw LimsException.badRequest("Insufficient quantity in container");
+        }
+        container.setQuantity(container.getQuantity().subtract(amountUsed));
+        if (container.getQuantity().compareTo(BigDecimal.ZERO) == 0) {
+            container.setStatus("EMPTY");
+        }
+        ChemicalContainer saved = containerRepository.save(container);
+        auditService.log(container.getTenantId(), userId, "ChemicalContainer", containerId,
+                "CONSUME", null, amountUsed.toPlainString());
+        return saved;
+    }
+
+    @Transactional
+    public ChemicalContainer returnContainer(Long containerId, Long userId) {
+        ChemicalContainer container = containerRepository.findById(containerId)
+                .orElseThrow(() -> LimsException.notFound("Container not found"));
+        container.setStatus("AVAILABLE");
+        ChemicalContainer saved = containerRepository.save(container);
+        auditService.log(container.getTenantId(), userId, "ChemicalContainer", containerId,
+                "RETURN", "IN_USE", "AVAILABLE");
+        return saved;
+    }
+
+    @Transactional
+    public ChemicalContainer disposeContainer(Long containerId, Long userId) {
+        ChemicalContainer container = containerRepository.findById(containerId)
+                .orElseThrow(() -> LimsException.notFound("Container not found"));
+        container.setStatus("DISPOSED");
+        ChemicalContainer saved = containerRepository.save(container);
+        auditService.log(container.getTenantId(), userId, "ChemicalContainer", containerId,
+                "DISPOSE", container.getStatus(), "DISPOSED");
+        return saved;
+    }
+
+    @Transactional(readOnly = true)
+    public List<ChemicalContainer> getAvailableByChemicalFEFO(Long tenantId, Long branchId, Long chemicalId) {
+        return containerRepository.findAvailableByChemicalIdOrderByFEFO(tenantId, branchId, chemicalId);
+    }
+
+    // ── Low-Stock Alerts ────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public List<ChemicalStock> getLowStockAlerts(Long tenantId, Long branchId, BigDecimal threshold) {
+        return stockRepository.findByTenantIdAndBranchId(tenantId, branchId).stream()
+                .filter(s -> "AVAILABLE".equals(s.getStatus())
+                        && s.getQuantityInStock().compareTo(threshold) <= 0)
+                .toList();
+    }
+
+    // ── Reagent Preparation ─────────────────────────────────────────────────
+
+    @Transactional
+    public ReagentPreparation prepareReagent(Long tenantId, Long branchId,
+                                              Long registrationId, String name,
+                                              String formula, String concentration,
+                                              BigDecimal volume, Long uomId,
+                                              LocalDate expiryDate, String remarks,
+                                              Long userId) {
+        AppUser preparedBy = userRepository.findById(userId)
+                .orElseThrow(() -> LimsException.notFound("User not found"));
+        UomDetails uom = uomId != null ? uomRepository.findById(uomId).orElse(null) : null;
+        ChemicalRegistration registration = registrationId != null
+                ? registrationRepository.findById(registrationId).orElse(null) : null;
+
+        String prepNo = "PREP-" + java.time.Year.now().getValue() + "-"
+                + String.format("%05d", System.currentTimeMillis() % 100000);
+
+        ReagentPreparation prep = ReagentPreparation.builder()
+                .tenantId(tenantId).branchId(branchId)
+                .registration(registration)
+                .prepNo(prepNo)
+                .name(name).formula(formula).concentration(concentration)
+                .volumePrepared(volume).uom(uom)
+                .preparedBy(preparedBy)
+                .preparedAt(java.time.LocalDateTime.now())
+                .expiryDate(expiryDate)
+                .remarks(remarks)
+                .status("ACTIVE")
+                .build();
+
+        ReagentPreparation saved = reagentPreparationRepository.save(prep);
+        auditService.log(tenantId, userId, "ReagentPreparation", saved.getId(), "PREPARE", null, name);
+        return saved;
+    }
+
+    @Transactional
+    public ReagentPreparation discardReagent(Long prepId, Long userId) {
+        ReagentPreparation prep = reagentPreparationRepository.findById(prepId)
+                .orElseThrow(() -> LimsException.notFound("Reagent preparation not found"));
+        prep.setStatus("DISCARDED");
+        return reagentPreparationRepository.save(prep);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReagentPreparation> getReagents(Long tenantId, Long branchId, String status) {
+        if (status != null) {
+            return reagentPreparationRepository.findByTenantIdAndBranchIdAndStatus(tenantId, branchId, status);
+        }
+        return reagentPreparationRepository.findByTenantIdAndBranchId(tenantId, branchId);
+    }
+
+    @Transactional(readOnly = true)
+    public ReagentPreparation getReagentById(Long id) {
+        return reagentPreparationRepository.findById(id)
+                .orElseThrow(() -> LimsException.notFound("Reagent preparation not found"));
     }
 }

@@ -1,10 +1,13 @@
 package com.sivayahealth.lims.service;
 
-import com.sivayahealth.lims.entity.AppUser;
 import com.sivayahealth.lims.entity.AuditLog;
+import com.sivayahealth.lims.entity.AppUser;
 import com.sivayahealth.lims.entity.Tenant;
 import com.sivayahealth.lims.repository.AuditLogRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -47,11 +50,40 @@ public class AuditService {
 
     @Transactional(readOnly = true)
     public List<AuditLog> getAuditTrail(Long tenantId, String entityType, Long entityId) {
-        return auditLogRepository.findByTenantIdAndEntityTypeAndEntityId(tenantId, entityType, entityId);
+        return auditLogRepository.findByTenantIdAndEntityTypeAndEntityIdOrderByCreatedAtAsc(
+                tenantId, entityType, entityId);
     }
 
     @Transactional(readOnly = true)
     public List<AuditLog> getTenantAuditTrail(Long tenantId) {
         return auditLogRepository.findByTenantIdOrderByCreatedAtDesc(tenantId);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AuditLog> searchAuditLogs(Long tenantId, String entityType, String action,
+                                           Long userId, LocalDateTime from, LocalDateTime to,
+                                           int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return auditLogRepository.searchAuditLogs(tenantId, entityType, action, userId, from, to, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AuditLog> getAuditLogsPaged(Long tenantId, int page, int size) {
+        return auditLogRepository.findByTenantId(tenantId, PageRequest.of(page, size));
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getDistinctEntityTypes(Long tenantId) {
+        return auditLogRepository.findDistinctEntityTypes(tenantId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getDistinctActions(Long tenantId) {
+        return auditLogRepository.findDistinctActions(tenantId);
+    }
+
+    @Transactional(readOnly = true)
+    public long countAuditLogs(Long tenantId) {
+        return auditLogRepository.countByTenantId(tenantId);
     }
 }

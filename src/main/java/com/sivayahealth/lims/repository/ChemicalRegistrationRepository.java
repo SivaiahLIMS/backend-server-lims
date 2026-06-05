@@ -18,6 +18,9 @@ public interface ChemicalRegistrationRepository extends JpaRepository<ChemicalRe
     @Query("SELECT r FROM ChemicalRegistration r WHERE r.tenant.id = :tenantId AND r.expiryDate <= :date AND r.status = 'ACTIVE'")
     List<ChemicalRegistration> findExpiringChemicals(@Param("tenantId") Long tenantId, @Param("date") LocalDate date);
 
+    @Query("SELECT r FROM ChemicalRegistration r WHERE r.expiryDate <= :date AND r.status = 'ACTIVE'")
+    List<ChemicalRegistration> findExpiringAllTenants(@Param("date") LocalDate date);
+
     @Query(value = "SELECT COALESCE(MAX(CAST(SUBSTRING(reg_no, 3) AS BIGINT)), 0) FROM chemical_registration WHERE tenant_id = :tenantId", nativeQuery = true)
     Long findMaxRegNoSeq(@Param("tenantId") Long tenantId);
 }

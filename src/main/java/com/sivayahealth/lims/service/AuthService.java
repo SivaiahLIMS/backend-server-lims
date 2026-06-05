@@ -60,9 +60,8 @@ public class AuthService {
 
             auditService.log(user.getTenant().getId(), user.getId(), "AppUser", user.getId(), "LOGIN", null, null);
 
-            LoginResponse response = new LoginResponse(token, refreshToken, user.getId(), user.getUsername(),
+            return new LoginResponse(token, refreshToken, user.getId(), user.getUsername(),
                     user.getTenant().getId(), branchId, userDetails.getPermissions());
-            return response;
 
         } catch (BadCredentialsException ex) {
             int attempts = user.getFailedAttempts() + 1;

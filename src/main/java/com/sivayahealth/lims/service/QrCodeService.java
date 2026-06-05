@@ -48,7 +48,7 @@ public class QrCodeService {
      * format: CHEM|<4-letter-prefix>|T<tenantId>|B<branchId>|<regNo>|EXP:<expiryDate>
      */
     public String buildChemicalQrPayload(String chemicalName, Long tenantId, Long branchId,
-                                         String regNo, String expiryDate) {
+                                          String regNo, String expiryDate) {
         String prefix = chemicalName != null && chemicalName.length() >= 4
                 ? chemicalName.substring(0, 4).toUpperCase()
                 : (chemicalName != null ? chemicalName.toUpperCase() : "CHEM");

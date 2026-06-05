@@ -33,7 +33,7 @@ public class TaskService {
 
     public TaskMaster getTask(Long id) {
         return taskMasterRepository.findById(id)
-                .orElseThrow(() ->  LimsException.notFound("Task not found: "));
+                .orElseThrow(() -> LimsException.notFound("Task not found: " + id));
     }
 
     @Transactional

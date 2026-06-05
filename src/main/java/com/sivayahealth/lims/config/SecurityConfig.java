@@ -35,8 +35,9 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final LimsUserDetailsService userDetailsService;
 
-    @Value("${cors.allowed-origins:http://localhost:5173,http://localhost:3000,https://lims-ui-452789239320.asia-south1.run.app}")
+    @Value("${cors.allowed-origins:http://localhost:5173,http://localhost:3000,https://lims-ui-452789239320.asia-south1.run.app,https://lims-ui-452789239320.asia-southeast1.run.app,https://sivayahealth.com,https://lims.sivayahealth.com}")
     private String allowedOrigins;
+
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -55,7 +56,8 @@ public class SecurityConfig {
                                 "/actuator/prometheus",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/v3/api-docs/**"
+                                "/v3/api-docs/**",
+                                "/error"
                         ).permitAll()
 
                         .requestMatchers("/actuator/**").hasRole("ADMIN")

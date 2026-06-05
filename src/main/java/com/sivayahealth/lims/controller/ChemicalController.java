@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -250,6 +251,90 @@ public class ChemicalController {
                 chemicalService.getAvailableInBranchExpiringSoon(u.getTenantId(), branchId, minVolume, daysAhead));
     }
 
+    // ── Container Management ─────────────────────────────────────────────────
+
+    @GetMapping("/containers")
+    @PreAuthorize("hasAuthority('CHEMICAL_STOCK_VIEW')")
+    @Operation(summary = "List chemical containers for branch",
+               description = "Filter by status: AVAILABLE, IN_USE, EMPTY, DISPOSED")
+    public ResponseEntity<List<ChemicalContainer>> getContainers(
+            @RequestHeader("X-Branch-Id") Long branchId,
+            @RequestParam(required = false) String status,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(chemicalService.getContainers(u.getTenantId(), branchId, status));
+    }
+
+    @GetMapping("/containers/scan/{barcode}")
+    @PreAuthorize("hasAuthority('CHEMICAL_STOCK_VIEW')")
+    @Operation(summary = "Scan and retrieve container by barcode")
+    public ResponseEntity<ChemicalContainer> getContainerByBarcode(
+            @PathVariable String barcode,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(chemicalService.getContainerByBarcode(u.getTenantId(), barcode));
+    }
+
+    @GetMapping("/containers/fefo/{chemicalId}")
+    @PreAuthorize("hasAuthority('CHEMICAL_STOCK_VIEW')")
+    @Operation(summary = "Get available containers for a chemical sorted by FEFO (First Expire First Out)")
+    public ResponseEntity<List<ChemicalContainer>> getContainersFEFO(
+            @PathVariable Long chemicalId,
+            @RequestHeader("X-Branch-Id") Long branchId,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(
+                chemicalService.getAvailableByChemicalFEFO(u.getTenantId(), branchId, chemicalId));
+    }
+
+    @PostMapping("/containers/{id}/open")
+    @PreAuthorize("hasAuthority('CHEMICAL_ISSUE')")
+    @Operation(summary = "Mark a container as opened/in-use")
+    public ResponseEntity<ChemicalContainer> openContainer(
+            @PathVariable Long id,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(chemicalService.openContainer(id, u.getUser().getId()));
+    }
+
+    @PostMapping("/containers/{id}/consume")
+    @PreAuthorize("hasAuthority('CHEMICAL_ISSUE')")
+    @Operation(summary = "Record consumption from an open container")
+    public ResponseEntity<ChemicalContainer> consumeFromContainer(
+            @PathVariable Long id,
+            @RequestBody ConsumeContainerRequest body,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(
+                chemicalService.consumeFromContainer(id, body.getAmountUsed(), u.getUser().getId()));
+    }
+
+    @PostMapping("/containers/{id}/return")
+    @PreAuthorize("hasAuthority('CHEMICAL_ISSUE')")
+    @Operation(summary = "Return an in-use container to available state")
+    public ResponseEntity<ChemicalContainer> returnContainer(
+            @PathVariable Long id,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(chemicalService.returnContainer(id, u.getUser().getId()));
+    }
+
+    @PostMapping("/containers/{id}/dispose")
+    @PreAuthorize("hasAuthority('CHEMICAL_DESTROY')")
+    @Operation(summary = "Mark a container as disposed")
+    public ResponseEntity<ChemicalContainer> disposeContainer(
+            @PathVariable Long id,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(chemicalService.disposeContainer(id, u.getUser().getId()));
+    }
+
+    // ── Low-Stock Alerts ─────────────────────────────────────────────────────
+
+    @GetMapping("/alerts/low-stock")
+    @PreAuthorize("hasAuthority('CHEMICAL_STOCK_VIEW')")
+    @Operation(summary = "Get chemicals with stock at or below threshold quantity",
+               description = "threshold defaults to 10. Scoped by X-Branch-Id header.")
+    public ResponseEntity<List<ChemicalStock>> getLowStockAlerts(
+            @RequestHeader("X-Branch-Id") Long branchId,
+            @RequestParam(defaultValue = "10") java.math.BigDecimal threshold,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(chemicalService.getLowStockAlerts(u.getTenantId(), branchId, threshold));
+    }
+
     // ── Delivery Tracking Lists ──────────────────────────────────────────────
 
     @GetMapping("/lists/due-for-delivery")
@@ -291,5 +376,70 @@ public class ChemicalController {
                         BigDecimal.ZERO,
                         LocalDate.of(2000, 1, 1),
                         LocalDate.now().plusYears(20)));
+    }
+
+    @Data
+    static class ConsumeContainerRequest {
+        private java.math.BigDecimal amountUsed;
+    }
+
+    // ── Reagent Preparation ──────────────────────────────────────────────────
+
+    @GetMapping("/reagents")
+    @PreAuthorize("hasAuthority('CHEMICAL_STOCK_VIEW')")
+    @Operation(summary = "List reagent preparations for branch",
+               description = "Filter by status: ACTIVE, DISCARDED, EXPIRED")
+    public ResponseEntity<List<ReagentPreparation>> getReagents(
+            @RequestHeader("X-Branch-Id") Long branchId,
+            @RequestParam(required = false) String status,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(chemicalService.getReagents(u.getTenantId(), branchId, status));
+    }
+
+    @GetMapping("/reagents/{id}")
+    @PreAuthorize("hasAuthority('CHEMICAL_STOCK_VIEW')")
+    @Operation(summary = "Get a reagent preparation by ID")
+    public ResponseEntity<ReagentPreparation> getReagentById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(chemicalService.getReagentById(id));
+    }
+
+    @PostMapping("/reagents")
+    @PreAuthorize("hasAuthority('CHEMICAL_ISSUE')")
+    @Operation(summary = "Record a new reagent/solution preparation")
+    public ResponseEntity<ReagentPreparation> prepareReagent(
+            @RequestHeader("X-Branch-Id") Long branchId,
+            @RequestBody PrepareReagentRequest body,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+                chemicalService.prepareReagent(
+                        u.getTenantId(), branchId,
+                        body.getRegistrationId(), body.getName(),
+                        body.getFormula(), body.getConcentration(),
+                        body.getVolumePrepared(), body.getUomId(),
+                        body.getExpiryDate(), body.getRemarks(),
+                        u.getUser().getId()));
+    }
+
+    @PostMapping("/reagents/{id}/discard")
+    @PreAuthorize("hasAuthority('CHEMICAL_ISSUE')")
+    @Operation(summary = "Mark a reagent preparation as discarded")
+    public ResponseEntity<ReagentPreparation> discardReagent(
+            @PathVariable Long id,
+            @AuthenticationPrincipal LimsUserDetails u) {
+        return ResponseEntity.ok(chemicalService.discardReagent(id, u.getUser().getId()));
+    }
+
+    @Data
+    static class PrepareReagentRequest {
+        private Long registrationId;
+        private String name;
+        private String formula;
+        private String concentration;
+        private java.math.BigDecimal volumePrepared;
+        private Long uomId;
+        private java.time.LocalDate expiryDate;
+        private String remarks;
     }
 }

@@ -32,7 +32,7 @@ public interface DocumentVersionRepository extends JpaRepository<DocumentVersion
         ORDER BY v.uploadedAt ASC
         """)
     List<DocumentVersion> findAssignedToReviewer(@Param("tenantId") Long tenantId,
-                                                 @Param("userId") Long userId);
+                                                  @Param("userId") Long userId);
 
     /** UNDER_REVIEW versions not yet assigned to any reviewer (unassigned QC queue) */
     @Query("""

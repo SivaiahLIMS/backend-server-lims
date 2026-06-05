@@ -1,11 +1,19 @@
 package com.sivayahealth.lims.controller;
 
+import com.sivayahealth.lims.dto.instrument.AddCalibrationResultRequest;
+import com.sivayahealth.lims.dto.instrument.CreateInstrumentCalibrationRequest;
+import com.sivayahealth.lims.dto.instrument.CreateInstrumentReservationRequest;
+import com.sivayahealth.lims.dto.instrument.InstrumentRemarksRequest;
+import com.sivayahealth.lims.dto.instrument.LogDowntimeRequest;
 import com.sivayahealth.lims.entity.*;
 import com.sivayahealth.lims.exception.LimsException;
 import com.sivayahealth.lims.repository.*;
 import com.sivayahealth.lims.security.LimsUserDetails;
 import com.sivayahealth.lims.service.InstrumentService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -14,12 +22,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/instruments")
@@ -35,11 +40,16 @@ public class InstrumentController {
     private final InstrumentMasterRepository instrumentMasterRepository;
     private final InstrumentCalibrationRepository instrumentCalibrationRepository;
     private final AppUserRepository appUserRepository;
-    private final com.sivayahealth.lims.repository.OrderRequestRepository orderRequestRepository;
+    private final OrderRequestRepository orderRequestRepository;
 
     @PostMapping
     @PreAuthorize("hasAuthority('INSTRUMENT_CREATE')")
     @Operation(summary = "Register a new instrument")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Created"),
+        @ApiResponse(responseCode = "400", description = "Invalid request"),
+        @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     public ResponseEntity<InstrumentMaster> createInstrument(@RequestBody InstrumentMaster instrument) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(instrumentService.createInstrument(instrument));
@@ -49,6 +59,11 @@ public class InstrumentController {
     @PreAuthorize("hasAuthority('INSTRUMENT_VIEW')")
     @Operation(summary = "List instruments for branch",
                description = "Requires: INSTRUMENT_VIEW. Scoped by X-Branch-Id header.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     public ResponseEntity<List<InstrumentMaster>> getInstruments(
             @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
@@ -58,35 +73,38 @@ public class InstrumentController {
     @PostMapping("/{instrumentId}/calibrations")
     @PreAuthorize("hasAuthority('CALIBRATION_ALLOCATE')")
     @Operation(summary = "Create a calibration event for instrument",
-               description = "Requires: CALIBRATION_ALLOCATE. Scoped by X-Branch-Id header.")
+               description = "Requires: CALIBRATION_ALLOCATE. Body: analystId. Scoped by X-Branch-Id header.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Calibration created"),
+        @ApiResponse(responseCode = "404", description = "Instrument not found"),
+        @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     public ResponseEntity<InstrumentCalibration> createCalibration(
             @PathVariable Long instrumentId,
             @RequestHeader("X-Branch-Id") Long branchId,
-            @RequestBody Map<String, Long> body,
+            @RequestBody CreateInstrumentCalibrationRequest body,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.status(HttpStatus.CREATED).body(
-                instrumentService.createCalibration(
-                        instrumentId,
-                        u.getTenantId(),
-                        branchId,
-                        body.get("analystId")
-                )
+                instrumentService.createCalibration(instrumentId, u.getTenantId(), branchId, body.getAnalystId())
         );
     }
 
     @PostMapping("/calibrations/{calibrationId}/results")
     @PreAuthorize("hasAuthority('CALIBRATION_EXECUTE')")
-    @Operation(summary = "Add a calibration result")
+    @Operation(summary = "Add a calibration result",
+               description = "Required: templateId, observation.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Result added"),
+        @ApiResponse(responseCode = "404", description = "Calibration not found"),
+        @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     public ResponseEntity<InstrumentCalibrationResult> addResult(
             @PathVariable Long calibrationId,
-            @RequestBody Map<String, Object> body,
+            @RequestBody AddCalibrationResultRequest body,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 instrumentService.addCalibrationResult(
-                        calibrationId,
-                        ((Number) body.get("templateId")).longValue(),
-                        new BigDecimal(body.get("observation").toString()),
-                        u.getUser().getId()
+                        calibrationId, body.getTemplateId(), body.getObservation(), u.getUser().getId()
                 )
         );
     }
@@ -94,11 +112,16 @@ public class InstrumentController {
     @PostMapping("/calibrations/{calibrationId}/approve")
     @PreAuthorize("hasAuthority('CALIBRATION_APPROVE')")
     @Operation(summary = "Approve a calibration")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Approved"),
+        @ApiResponse(responseCode = "404", description = "Calibration not found"),
+        @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     public ResponseEntity<InstrumentCalibration> approveCalibration(
             @PathVariable Long calibrationId,
-            @RequestBody(required = false) Map<String, String> body,
+            @RequestBody(required = false) InstrumentRemarksRequest body,
             @AuthenticationPrincipal LimsUserDetails u) {
-        String remarks = body != null ? body.get("remarks") : null;
+        String remarks = body != null ? body.getRemarks() : null;
         return ResponseEntity.ok(instrumentService.updateCalibrationStatus(
                 calibrationId, "APPROVED", u.getUser().getId(), remarks));
     }
@@ -106,58 +129,83 @@ public class InstrumentController {
     @PostMapping("/calibrations/{calibrationId}/review")
     @PreAuthorize("hasAuthority('CALIBRATION_REVIEW')")
     @Operation(summary = "Submit calibration for review")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Submitted for review"),
+        @ApiResponse(responseCode = "404", description = "Calibration not found"),
+        @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     public ResponseEntity<InstrumentCalibration> reviewCalibration(
             @PathVariable Long calibrationId,
-            @RequestBody(required = false) Map<String, String> body,
+            @RequestBody(required = false) InstrumentRemarksRequest body,
             @AuthenticationPrincipal LimsUserDetails u) {
-        String remarks = body != null ? body.get("remarks") : null;
+        String remarks = body != null ? body.getRemarks() : null;
         return ResponseEntity.ok(instrumentService.updateCalibrationStatus(
                 calibrationId, "TEST_COMPLETED", u.getUser().getId(), remarks));
     }
 
     @PostMapping("/{instrumentId}/downtime")
     @PreAuthorize("hasAuthority('DOWNTIME_LOG')")
-    @Operation(summary = "Log instrument downtime")
+    @Operation(summary = "Log instrument downtime",
+               description = "Body: reason (required).")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Downtime logged"),
+        @ApiResponse(responseCode = "404", description = "Instrument not found"),
+        @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     public ResponseEntity<InstrumentDowntime> logDowntime(
             @PathVariable Long instrumentId,
-            @RequestBody Map<String, String> body) {
+            @RequestBody LogDowntimeRequest body) {
         return ResponseEntity.status(HttpStatus.CREATED).body(
-                instrumentService.logDowntime(instrumentId,
-                        LocalDateTime.now(),
-                        body.get("reason"))
+                instrumentService.logDowntime(instrumentId, LocalDateTime.now(), body.getReason())
         );
     }
 
     @GetMapping("/{instrumentId}/reservations")
+    @PreAuthorize("hasAuthority('INSTRUMENT_VIEW')")
     @Operation(summary = "List reservations for an instrument")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "404", description = "Instrument not found")
+    })
     public ResponseEntity<List<InstrumentReservation>> getReservations(@PathVariable Long instrumentId) {
         return ResponseEntity.ok(instrumentReservationRepository.findByInstrument_Id(instrumentId));
     }
 
     @PostMapping("/{instrumentId}/reservations")
+    @PreAuthorize("hasAuthority('INSTRUMENT_VIEW')")
     @Operation(summary = "Request an instrument reservation",
                description = "Requires: INSTRUMENT_VIEW. Scoped by X-Branch-Id header.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Reservation requested"),
+        @ApiResponse(responseCode = "404", description = "Instrument not found"),
+        @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     public ResponseEntity<InstrumentReservation> createReservation(
             @PathVariable Long instrumentId,
             @RequestHeader("X-Branch-Id") Long branchId,
-            @RequestBody Map<String, Object> body,
+            @RequestBody(required = false) CreateInstrumentReservationRequest body,
             @AuthenticationPrincipal LimsUserDetails u) {
         InstrumentMaster instrument = instrumentMasterRepository.findById(instrumentId)
                 .orElseThrow(() -> LimsException.notFound("Instrument not found: " + instrumentId));
-        AppUser requestedBy = u.getUser();
         InstrumentReservation reservation = InstrumentReservation.builder()
                 .tenantId(u.getTenantId())
                 .branchId(branchId)
                 .instrument(instrument)
                 .status("REQUESTED")
-                .requestedBy(requestedBy)
+                .requestedBy(u.getUser())
                 .requestedAt(LocalDateTime.now())
                 .build();
         return ResponseEntity.status(HttpStatus.CREATED).body(instrumentReservationRepository.save(reservation));
     }
 
     @PostMapping("/reservations/{id}/approve")
+    @PreAuthorize("hasAuthority('INSTRUMENT_VIEW')")
     @Operation(summary = "Approve an instrument reservation")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Approved"),
+        @ApiResponse(responseCode = "404", description = "Reservation not found"),
+        @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     public ResponseEntity<InstrumentReservation> approveReservation(
             @PathVariable Long id,
             @AuthenticationPrincipal LimsUserDetails u) {
@@ -170,13 +218,24 @@ public class InstrumentController {
     }
 
     @GetMapping("/{instrumentId}/limits")
+    @PreAuthorize("hasAuthority('INSTRUMENT_VIEW')")
     @Operation(summary = "Get calibration limit sets for an instrument")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "404", description = "Instrument not found")
+    })
     public ResponseEntity<List<InstrumentCalibrationLimitSet>> getLimits(@PathVariable Long instrumentId) {
         return ResponseEntity.ok(calibrationLimitSetRepository.findByInstrument_Id(instrumentId));
     }
 
     @PostMapping("/{instrumentId}/limits")
+    @PreAuthorize("hasAuthority('CALIBRATION_APPROVE')")
     @Operation(summary = "Add a calibration limit set for an instrument")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Created"),
+        @ApiResponse(responseCode = "404", description = "Instrument not found"),
+        @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
     public ResponseEntity<InstrumentCalibrationLimitSet> createLimitSet(
             @PathVariable Long instrumentId,
             @RequestBody InstrumentCalibrationLimitSet limitSet,
@@ -200,6 +259,10 @@ public class InstrumentController {
     @PreAuthorize("hasAuthority('INSTRUMENT_VIEW')")
     @Operation(summary = "Active instruments list — status = AVAILABLE",
                description = "Instruments currently usable in the branch.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     public ResponseEntity<List<InstrumentMaster>> getActiveInstruments(
             @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
@@ -211,6 +274,10 @@ public class InstrumentController {
     @PreAuthorize("hasAuthority('CALIBRATION_SCHEDULE_VIEW')")
     @Operation(summary = "Instruments overdue for calibration",
                description = "Calibration due date is in the past and the calibration record is not yet completed/approved.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     public ResponseEntity<List<InstrumentCalibration>> getOverdueCalibrations(
             @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
@@ -223,6 +290,10 @@ public class InstrumentController {
     @PreAuthorize("hasAuthority('CALIBRATION_SCHEDULE_VIEW')")
     @Operation(summary = "Instruments ready for calibration",
                description = "Instrument is AVAILABLE and calibration is SCHEDULED within the window (default next 7 days).")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     public ResponseEntity<List<InstrumentCalibration>> getReadyForCalibration(
             @RequestHeader("X-Branch-Id") Long branchId,
             @RequestParam(defaultValue = "7") int windowDays,
@@ -237,6 +308,10 @@ public class InstrumentController {
     @PreAuthorize("hasAuthority('CALIBRATION_REVIEW')")
     @Operation(summary = "Calibrations pending QA/QC approval",
                description = "Calibration completed — waiting for reviewer/approver. Status = TEST_COMPLETED.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     public ResponseEntity<List<InstrumentCalibration>> getPendingCalibrationApproval(
             @RequestHeader("X-Branch-Id") Long branchId,
             @AuthenticationPrincipal LimsUserDetails u) {
@@ -250,6 +325,10 @@ public class InstrumentController {
     @Operation(summary = "Full calibration lifecycle for an instrument",
                description = "All calibration records ordered chronologically: " +
                              "CREATED → ASSIGNED → IN_PROGRESS → COMPLETED → TEST_COMPLETED → APPROVED → ARCHIVED.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "404", description = "Instrument not found")
+    })
     public ResponseEntity<List<InstrumentCalibration>> getCalibrationLifecycle(
             @PathVariable Long instrumentId) {
         return ResponseEntity.ok(
@@ -261,7 +340,11 @@ public class InstrumentController {
     @Operation(summary = "Instruments due for delivery — ORDER_PLACED instrument order requests",
                description = "All INSTRUMENT order requests in ORDER_PLACED status with expected delivery " +
                              "within the next daysAhead days (default 30).")
-    public ResponseEntity<List<com.sivayahealth.lims.entity.OrderRequest>> getInstrumentsDueForDelivery(
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    public ResponseEntity<List<OrderRequest>> getInstrumentsDueForDelivery(
             @RequestParam(defaultValue = "30") int daysAhead,
             @AuthenticationPrincipal LimsUserDetails u) {
         return ResponseEntity.ok(

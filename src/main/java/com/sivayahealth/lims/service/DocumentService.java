@@ -43,7 +43,7 @@ public class DocumentService {
 
     @Transactional
     public DocumentVersion uploadDocxVersion(Long documentId, Long tenantId, Long branchId,
-                                             MultipartFile file, Long uploadedById) {
+                                              MultipartFile file, Long uploadedById) {
         DocumentMaster doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> LimsException.notFound("Document not found"));
         AppUser uploader = userRepository.findById(uploadedById).orElse(null);
@@ -224,7 +224,7 @@ public class DocumentService {
 
     @Transactional
     public WorksheetExecution submitWorksheet(Long documentId, Long sampleId,
-                                              String filledJson, Long executedById) {
+                                               String filledJson, Long executedById) {
         DocumentMaster doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> LimsException.notFound("Document not found"));
         AppUser executor = userRepository.findById(executedById)

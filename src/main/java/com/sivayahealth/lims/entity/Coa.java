@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 @Table(name = "coa")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Coa {
+
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
@@ -26,11 +27,22 @@ public class Coa {
     @Column(name = "coa_no", nullable = false, length = 100)
     private String coaNo;
 
+    @Column(name = "product_id")
+    private Long productId;
+
+    @Column(name = "test_results_json", columnDefinition = "TEXT")
+    private String testResultsJson;
+
     @Column(nullable = false, length = 30)
-    private String status;
+    @Builder.Default
+    private String status = "DRAFT";
 
     @Column(name = "generated_at")
     private LocalDateTime generatedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "generated_by")
+    private AppUser generatedBy;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "approved_by")
@@ -38,4 +50,7 @@ public class Coa {
 
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
+
+    @Column(name = "pdf_path", length = 500)
+    private String pdfPath;
 }

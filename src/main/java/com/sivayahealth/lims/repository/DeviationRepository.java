@@ -9,4 +9,5 @@ import java.util.List;
 public interface DeviationRepository extends JpaRepository<Deviation, Long> {
     List<Deviation> findByTenantIdAndBranchId(Long tenantId, Long branchId);
     List<Deviation> findByTenantIdAndStatus(Long tenantId, String status);
+    List<Deviation> findByTenantId(Long tenantId);
 }

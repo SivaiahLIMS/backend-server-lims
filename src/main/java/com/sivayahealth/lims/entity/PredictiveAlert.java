@@ -28,6 +28,9 @@ public class PredictiveAlert {
     @Column(name = "entity_id")
     private Long entityId;
 
+    @Column(name = "alert_type", length = 50)
+    private String alertType;
+
     @Column(name = "metric_type")
     private String metricType;
 
@@ -45,6 +48,12 @@ public class PredictiveAlert {
 
     @Column(nullable = false)
     private String status = "OPEN";
+
+    @Column(columnDefinition = "TEXT")
+    private String message;
+
+    @Column(length = 20)
+    private String severity;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "acknowledged_by")

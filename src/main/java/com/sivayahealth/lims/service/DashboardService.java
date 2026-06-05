@@ -19,6 +19,9 @@ public class DashboardService {
     private final SampleRepository sampleRepository;
     private final OosCaseRepository oosCaseRepository;
     private final DeviationRepository deviationRepository;
+    private final CapaRepository capaRepository;
+    private final StabilityStudyRepository stabilityStudyRepository;
+    private final ReagentPreparationRepository reagentPreparationRepository;
 
     @Transactional(readOnly = true)
     public Map<String, Object> getDashboardData(Long tenantId, Long branchId) {
@@ -43,7 +46,16 @@ public class DashboardService {
                 .findByTenantIdAndStatus(tenantId, "OPEN").size());
 
         data.put("inProgressSamples", sampleRepository
-                .findByTenantIdAndStatus(tenantId, "IN_PROGRESS").size());
+                .findByTenantIdAndStatus(tenantId, com.sivayahealth.lims.entity.SampleStatus.IN_PROGRESS).size());
+
+        data.put("openCapas", capaRepository
+                .findByTenantIdAndStatus(tenantId, "OPEN").size());
+
+        data.put("activeStabilityStudies", stabilityStudyRepository
+                .findByTenantIdAndBranchIdAndStatus(tenantId, branchId, "ACTIVE").size());
+
+        data.put("expiringReagents", reagentPreparationRepository
+                .findByStatusAndExpiryDateBefore("ACTIVE", LocalDate.now().plusDays(7)).size());
 
         return data;
     }

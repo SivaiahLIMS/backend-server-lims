@@ -70,7 +70,7 @@ public class DocxParserService {
         List<RawTestCase> rawTestCases = extractRawTestCases(docxStream);
         if (rawTestCases.isEmpty()) {
             throw new RuntimeException(
-                    "No test cases found. Each test case must end with a Formula paragraph.");
+                "No test cases found. Each test case must end with a Formula paragraph.");
         }
 
         int savedTestCases  = 0;
@@ -300,7 +300,7 @@ public class DocxParserService {
         if (idx < 26) return String.valueOf((char) ('A' + idx));
         // For more than 26 variables: AA, AB, ...
         return String.valueOf((char) ('A' + (idx / 26) - 1))
-                + String.valueOf((char) ('A' + (idx % 26)));
+             + String.valueOf((char) ('A' + (idx % 26)));
     }
 
     // ── Formula expression builder ────────────────────────────────────────────

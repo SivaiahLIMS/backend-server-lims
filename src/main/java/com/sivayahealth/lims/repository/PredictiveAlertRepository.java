@@ -8,4 +8,5 @@ public interface PredictiveAlertRepository extends JpaRepository<PredictiveAlert
     List<PredictiveAlert> findByTenantIdAndBranchId(Long tenantId, Long branchId);
     List<PredictiveAlert> findByTenantIdAndBranchIdAndStatus(Long tenantId, Long branchId, String status);
     List<PredictiveAlert> findByEntityTypeAndEntityId(String entityType, Long entityId);
+    boolean existsByEntityTypeAndEntityIdAndStatus(String entityType, Long entityId, String status);
 }

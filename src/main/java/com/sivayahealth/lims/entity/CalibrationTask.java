@@ -41,6 +41,16 @@ public class CalibrationTask {
     private TaskMaster task;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "schedule_id")
+    private InstrumentCalibrationSchedule schedule;
+
+    @Column(name = "task_type", length = 30)
+    private String taskType;
+
+    @Column(name = "due_date")
+    private java.time.LocalDate dueDate;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private AppUser createdBy;
 
