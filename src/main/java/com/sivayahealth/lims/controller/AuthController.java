@@ -6,6 +6,7 @@ import com.sivayahealth.lims.dto.auth.RefreshTokenRequest;
 import com.sivayahealth.lims.security.LimsUserDetails;
 import com.sivayahealth.lims.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
+    @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Logout")
     public ResponseEntity<Void> logout(@AuthenticationPrincipal LimsUserDetails userDetails) {
         authService.logout(userDetails.getUsername());

@@ -22,6 +22,16 @@ public class WorksheetFieldValidationRule {
     @Column(name = "field_type")
     private String fieldType = "NUMBER";
 
+    /**
+     * RANGE        — both lower and upper OOS limits apply (e.g. Assay 98.0–102.0%)
+     * MIN_ONLY     — only lower limit applies (e.g. Dissolution ≥ 80%)
+     * MAX_ONLY     — only upper limit applies (e.g. Impurity ≤ 0.5%)
+     * TARGET_VARIANCE — value must be within ± variance of a target
+     * FORMULA_BASED   — rule evaluated via expression, not simple bounds
+     */
+    @Column(name = "rule_type")
+    private String ruleType = "RANGE";
+
     private String unit;
 
     @Column(name = "oos_lower_limit")
@@ -41,6 +51,15 @@ public class WorksheetFieldValidationRule {
 
     @Column(name = "require_comment_on_oot")
     private boolean requireCommentOnOot = true;
+
+    @Column(name = "require_review_on_oot")
+    private boolean requireReviewOnOot = false;
+
+    @Column(name = "require_investigation_on_oos")
+    private boolean requireInvestigationOnOos = false;
+
+    @Column(name = "require_capa_on_oos")
+    private boolean requireCapaOnOos = false;
 
     private boolean active = true;
 

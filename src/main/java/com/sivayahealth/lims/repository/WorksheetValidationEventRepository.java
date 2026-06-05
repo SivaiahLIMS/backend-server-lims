@@ -9,4 +9,7 @@ public interface WorksheetValidationEventRepository
         extends JpaRepository<WorksheetValidationEvent, Long> {
 
     List<WorksheetValidationEvent> findByWorksheetIdOrderByValidatedAtDesc(Long worksheetId);
+
+    List<WorksheetValidationEvent> findByWorksheetIdAndSlotIdOrderByValidatedAtDesc(
+            Long worksheetId, Long slotId);
 }
