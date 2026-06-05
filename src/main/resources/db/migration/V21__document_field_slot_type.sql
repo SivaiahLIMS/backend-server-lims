@@ -1,0 +1,2 @@
+ALTER TABLE document_field_slot
+    ADD COLUMN IF NOT EXISTS field_type VARCHAR(20) NOT NULL DEFAULT 'NUMBER';

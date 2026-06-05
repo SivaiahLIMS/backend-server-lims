@@ -5,7 +5,7 @@ import lombok.*;
 
 @Entity
 @Table(name = "document_field_slot",
-    uniqueConstraints = @UniqueConstraint(columnNames = {"test_case_id", "field_index"}))
+        uniqueConstraints = @UniqueConstraint(columnNames = {"test_case_id", "field_index"}))
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class DocumentFieldSlot {
 
@@ -53,4 +53,8 @@ public class DocumentFieldSlot {
     // Unit hinted by document text near the -- placeholder
     @Column(name = "default_unit", length = 50)
     private String defaultUnit;
+
+    // Data type of the slot: NUMBER, TEXT, DATE (defaults to NUMBER)
+    @Column(name = "field_type", length = 20)
+    private String fieldType = "NUMBER";
 }
