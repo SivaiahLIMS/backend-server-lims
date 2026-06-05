@@ -18,4 +18,4 @@
 
 INSERT INTO permission (code, description) VALUES
     ('SYSTEM_ADMIN', 'Access to internal system admin operations including scheduler triggers')
-ON CONFLICT (name) DO NOTHING;
+    ON CONFLICT (code) DO NOTHING;

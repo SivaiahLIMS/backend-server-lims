@@ -218,4 +218,4 @@ INSERT INTO permission (code, description) VALUES
     ('INVENTORY_VIEW', 'View reagent inventory'),
     ('INVENTORY_MANAGE', 'Manage reagents and lots'),
     ('INVENTORY_CONSUME', 'Consume reagent lots')
-ON CONFLICT (name) DO NOTHING;
+    ON CONFLICT (code) DO NOTHING;
